@@ -177,6 +177,6 @@ Performance measures include shared, indexed geometries; one colored `InstancedM
 - Classic counts toward the 20-palette limit. Palette switching keeps the current color. New editable palettes start empty.
 - Palette drag-reordering is deferred. Axis/layer controls, H-to-hide and Recent are included.
 
-The **b.** icon is available as [SVG](public/logo.svg) and [512px transparent PNG](public/logo.png). It uses the existing wordmark's DM Sans weight 1000 outlines, charcoal `#263039`, coral `#e95642` period, and matching letter spacing. The SVG works without loading a font. Browser and touch icons live in `public/brand/` and are linked from `index.html`.
+The **br.** icon is available as [SVG](public/logo.svg) and [512px transparent PNG](public/logo.png). It uses the existing wordmark's DM Sans weight 1000 outlines, charcoal `#263039`, coral `#e95642` period, and matching letter spacing. The SVG works without loading a font. Browser and touch icons live in `public/brand/` and are linked from `index.html`.
 
 DM Sans is distributed under the SIL Open Font License; its license is included in `public/fonts/OFL.txt`.
