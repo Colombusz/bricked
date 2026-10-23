@@ -181,6 +181,7 @@ function start() {
     if(controls.update(dt)) { placement.update();dirty=true; }
     if(bricks.update(now)) { dirty=true;world.renderer.shadowMap.needsUpdate=true; }
     if(dirty) {
+      world.updateGround();
       constraintChips.refresh();
       hud.setPlacement(placement.reason,placement.ghost.visible&&!placement.valid);
       world.renderer.render(world.scene,world.camera);dirty=false;

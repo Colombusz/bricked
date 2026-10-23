@@ -5,22 +5,36 @@ import { dimensions, TYPES, type Brick } from './bricks/catalog';
 export interface GridHit { brick: Brick | null; point: Vector3; normal: Vector3; cell: Vector3 }
 export type Validity = { readonly valid: boolean; readonly reason: string };
 const OUTSIDE:Validity={valid:false,reason:'Outside the playground'},OCCUPIED:Validity={valid:false,reason:'This space is occupied'},UNSUPPORTED:Validity={valid:false,reason:'Needs a stud underneath'},VALID:Validity={valid:true,reason:'Click to place'};
-const limits=[CONFIG.baseplateSize,CONFIG.maxBuildHeight,CONFIG.baseplateSize];
-const key = (x: number, y: number, z: number) => x + CONFIG.baseplateSize * (z + CONFIG.baseplateSize * y);
+class Occupancy {
+  private rows=new Map<number,Map<number,Map<number,string>>>();
+  size=0;
+  get(x:number,y:number,z:number){return this.rows.get(x)?.get(z)?.get(y);}
+  set(x:number,y:number,z:number,id:string){
+    let row=this.rows.get(x);if(!row){row=new Map();this.rows.set(x,row);}
+    let column=row.get(z);if(!column){column=new Map();row.set(z,column);}
+    if(!column.has(y))this.size++;column.set(y,id);
+  }
+  delete(x:number,y:number,z:number){
+    const row=this.rows.get(x),column=row?.get(z);if(!column?.delete(y))return;
+    this.size--;if(!column.size)row!.delete(z);if(!row!.size)this.rows.delete(x);
+  }
+  clear(){this.rows.clear();this.size=0;}
+}
 export class Grid {
   readonly bricks = new Map<string, Brick>();
-  readonly occupancy = new Map<number, string>();
+  readonly occupancy = new Occupancy();
+  private cellBounds=new Box3();
+  private boundsPoint=new Vector3();
+  private boundsDirty=false;
 
   at(x: number, y: number, z: number) {
-    if(x<0||z<0||y<0||x>=CONFIG.baseplateSize||z>=CONFIG.baseplateSize||y>=CONFIG.maxBuildHeight)return;
-    const id = this.occupancy.get(key(x, y, z)); return id ? this.bricks.get(id) : undefined;
+    if(y<0||y>=CONFIG.maxBuildHeight)return;
+    const id = this.occupancy.get(x, y, z); return id ? this.bricks.get(id) : undefined;
   }
 
   inBounds(brick: Brick) {
-    const d = dimensions(brick), n = CONFIG.baseplateSize;
-    if(brick.y<0||brick.y+d.height>CONFIG.maxBuildHeight)return false;
-    for(let i=0;i<d.cells.length;i++){const cell=d.cells[i];if(brick.x+cell.x<0||brick.x+cell.x>=n||brick.z+cell.z<0||brick.z+cell.z>=n)return false;}
-    return true;
+    const d=dimensions(brick);
+    return Number.isSafeInteger(brick.x)&&Number.isSafeInteger(brick.z)&&Number.isSafeInteger(brick.y)&&Number.isSafeInteger(brick.x+d.width)&&Number.isSafeInteger(brick.z+d.depth)&&brick.y>=0&&brick.y+d.height<=CONFIG.maxBuildHeight;
   }
 
   collides(brick: Brick) {
@@ -60,23 +74,23 @@ export class Grid {
     if (!this.inBounds(brick) || this.collides(brick) || this.bricks.has(brick.id)) return false;
     const d = dimensions(brick);
     this.bricks.set(brick.id, { ...brick });
-    for (const cell of d.cells) for (let y = brick.y; y < brick.y + d.height; y++) this.occupancy.set(key(brick.x+cell.x, y, brick.z+cell.z), brick.id);
-    return true;
+    for (const cell of d.cells) for (let y = brick.y; y < brick.y + d.height; y++) this.occupancy.set(brick.x+cell.x, y, brick.z+cell.z, brick.id);
+    this.boundsDirty=true;return true;
   }
 
   remove(id: string) {
     const brick = this.bricks.get(id);
     if (!brick) return;
     const d = dimensions(brick);
-    for (const cell of d.cells) for (let y = brick.y; y < brick.y + d.height; y++) this.occupancy.delete(key(brick.x+cell.x, y, brick.z+cell.z));
-    this.bricks.delete(id); return brick;
+    for (const cell of d.cells) for (let y = brick.y; y < brick.y + d.height; y++) this.occupancy.delete(brick.x+cell.x, y, brick.z+cell.z);
+    this.bricks.delete(id);this.boundsDirty=true; return brick;
   }
 
-  clear() { this.bricks.clear(); this.occupancy.clear(); }
+  clear() { this.bricks.clear(); this.occupancy.clear();this.cellBounds.makeEmpty();this.boundsDirty=false; }
   snapshot() { return [...this.bricks.values()].map(brick => ({ ...brick })); }
   replace(bricks: Brick[]) { this.clear(); bricks.forEach(brick => this.add(brick)); }
   bounds() {
-    const box = new Box3(), half = CONFIG.baseplateSize / 2;
+    const box = new Box3(), half = CONFIG.gridOriginOffset;
     for (const brick of this.bricks.values()) {
       const d = dimensions(brick);
       for(const cell of d.cells){
@@ -96,15 +110,29 @@ export class Grid {
   private rayPoint=new Vector3();
   private rayHit:GridHit={brick:null,point:new Vector3(),normal:new Vector3(),cell:new Vector3()};
 
-  // The hit is a reusable view, consumed immediately by placement. No mesh or cell allocations.
+  private updateCellBounds(){
+    if(!this.boundsDirty)return;
+    this.cellBounds.makeEmpty();
+    for(const brick of this.bricks.values()){
+      const d=dimensions(brick);
+      this.cellBounds.expandByPoint(this.boundsPoint.set(brick.x,brick.y,brick.z));
+      this.cellBounds.expandByPoint(this.boundsPoint.set(brick.x+d.width,brick.y+d.height,brick.z+d.depth));
+    }
+    this.boundsDirty=false;
+  }
+  // Clip to occupied bounds first, then walk exact cells. Coordinates have no horizontal boundary.
   raycast(ray: Ray): GridHit | null {
-    const n=CONFIG.baseplateSize,origin=this.rayOrigin.copy(ray.origin),direction=this.rayDirection.copy(ray.direction);
-    origin.x+=n/2;origin.z+=n/2;origin.y/=CONFIG.plateHeight;direction.y/=CONFIG.plateHeight;
-    let enter=0,exit=Infinity,entryAxis=1;
+    if(!this.bricks.size)return this.baseHit(ray);
+    this.updateCellBounds();
+    const origin=this.rayOrigin.copy(ray.origin),direction=this.rayDirection.copy(ray.direction);
+    origin.x+=CONFIG.gridOriginOffset;origin.z+=CONFIG.gridOriginOffset;origin.y/=CONFIG.plateHeight;direction.y/=CONFIG.plateHeight;
+    let enter=0,entryAxis=1;
+    let exit:number=CONFIG.worldViewDistance;
+    const min=this.cellBounds.min,max=this.cellBounds.max;
     for(let axis=0;axis<3;axis++){
-      const o=origin.getComponent(axis),d=direction.getComponent(axis),limit=limits[axis];
-      if(Math.abs(d)<1e-10){if(o<0||o>=limit)return this.baseHit(ray);continue;}
-      const a=-o/d,b=(limit-o)/d,near=Math.min(a,b),far=Math.max(a,b);
+      const o=origin.getComponent(axis),d=direction.getComponent(axis),lo=min.getComponent(axis),hi=max.getComponent(axis);
+      if(Math.abs(d)<1e-10){if(o<lo||o>=hi)return this.baseHit(ray);continue;}
+      const a=(lo-o)/d,b=(hi-o)/d,near=Math.min(a,b),far=Math.max(a,b);
       if(near>enter){enter=near;entryAxis=axis;}exit=Math.min(exit,far);
     }
     if(enter>exit||exit<0)return this.baseHit(ray);
@@ -116,7 +144,7 @@ export class Grid {
       next.setComponent(axis,d===0?Infinity:((c+(d>0?1:0))-origin.getComponent(axis))/d);
     }
     let t=enter,axis=entryAxis;
-    while(t<=exit&&cell.x>=0&&cell.x<n&&cell.y>=0&&cell.y<CONFIG.maxBuildHeight&&cell.z>=0&&cell.z<n){
+    while(t<=exit&&cell.y>=0&&cell.y<CONFIG.maxBuildHeight){
       const brick=this.at(cell.x,cell.y,cell.z);
       if(brick){const hit=this.rayHit;hit.brick=brick;ray.at(t,hit.point);hit.normal.set(0,0,0).setComponent(axis,-step.getComponent(axis));hit.cell.copy(cell);return hit;}
       axis=next.x<next.y?(next.x<next.z?0:2):(next.y<next.z?1:2);t=next.getComponent(axis);
@@ -126,9 +154,8 @@ export class Grid {
   }
   private baseHit(ray:Ray):GridHit|null{
     if(ray.direction.y>=-1e-8)return null;
-    const t=-ray.origin.y/ray.direction.y;if(t<0)return null;
-    const hit=this.rayHit,p=ray.at(t,hit.point),half=CONFIG.baseplateSize/2;
-    if(Math.abs(p.x)>half+CONFIG.targetApron||Math.abs(p.z)>half+CONFIG.targetApron)return null;
+    const t=-ray.origin.y/ray.direction.y;if(t<0||t>CONFIG.worldViewDistance)return null;
+    const hit=this.rayHit,p=ray.at(t,hit.point),half=CONFIG.gridOriginOffset;
     hit.brick=null;hit.normal.set(0,1,0);hit.cell.set(Math.floor(p.x+half),0,Math.floor(p.z+half));return hit;
   }
 }

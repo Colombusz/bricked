@@ -22,12 +22,12 @@ test('tiles cannot support bricks, one stud allows overhang, floating is explici
   grid.clear(); grid.add(brick({type:'bricks-1x1'}));
   assert.ok(grid.validate(brick({x:11,z:9,y:3})).valid);
 });
-test('bounds, rotation, height limits and collision lift', () => {
+test('unbounded horizontal placement, rotation, height limits and collision lift', () => {
   const grid = new Grid(); grid.add(brick());
   assert.equal(grid.lift(brick()).y,3);
-  assert.equal(grid.validate(brick({x:31})).valid,false);
+  assert.equal(grid.validate(brick({x:31})).valid,true);
   assert.equal(grid.validate(brick({y:95})).valid,false);
-  assert.equal(grid.validate(brick({x:29,z:20,rotation:90})).valid,false);
+  assert.equal(grid.validate(brick({x:-1000,z:2000,rotation:90})).valid,true);
 });
 test('DDA returns exact top and side faces', () => {
   const grid = new Grid(); grid.add(brick());
@@ -36,6 +36,27 @@ test('DDA returns exact top and side faces', () => {
   const side = grid.raycast(new Ray(new Vector3(8,0.6,-3),new Vector3(-1,0,0)))!;
   assert.equal(side.brick?.id,'a'); assert.deepEqual(side.normal.toArray(),[1,0,0]);
   const next = targetBrick(grid,side,brick({id:'b'})); assert.equal(next.x,14); assert.equal(next.y,0);
+});
+test('sparse world coordinates never alias across old boundaries, negatives, or distant builds',()=>{
+  const grid=new Grid();
+  const locations=[[0,0],[32,0],[0,1],[-32,-64],[1000000,-1000000]];
+  for(const [i,[x,z]] of locations.entries())assert.ok(grid.add(brick({id:`far-${i}`,type:'bricks-1x1',x,z})));
+  assert.equal(grid.occupancy.size,locations.length*3);
+  for(const [i,[x,z]] of locations.entries()){
+    assert.equal(grid.at(x,0,z)?.id,`far-${i}`);
+    const ray=new Ray(new Vector3(x-15.5,10,z-15.5),new Vector3(0,-1,0));
+    assert.equal(grid.raycast(ray)?.brick?.id,`far-${i}`);
+  }
+  grid.remove('far-4');assert.equal(grid.raycast(new Ray(new Vector3(999984.5,10,-1000015.5),new Vector3(0,-1,0)))?.brick,null);
+  assert.equal(grid.at(32,0,0)?.id,'far-1');
+});
+test('distant mirrored Ls retain notch support, exact picking, undo and save compatibility',()=>{
+  const grid=new Grid(),history=new History(grid),l=brick({id:'far-L',type:'plates-l-2x3-t1',x:-5000,z:8000,mirror:true});
+  assert.ok(history.place(l));assert.equal(grid.occupancy.size,4);
+  const notch=brick({id:'notch',type:'bricks-1x1',x:-5000,z:8001});assert.ok(grid.validate(notch).valid);assert.ok(history.place(notch));
+  history.delete(l.id);history.undo();assert.equal(grid.at(-4999,0,8002)?.id,l.id);
+  const file=parseBuild(JSON.stringify({version:1,name:'Distant',bricks:grid.snapshot()}));assert.equal(file.bricks.length,2);assert.equal(file.bricks[0].x,-5000);
+  grid.clear();assert.equal(grid.occupancy.size,0);assert.equal(grid.raycast(new Ray(new Vector3(-5000,10,8000),new Vector3(0,-1,0)))?.brick,null);
 });
 test('hysteresis holds boundaries and every output is integral', () => {
   assert.equal(snapWithHysteresis(3.6,3),3); assert.equal(snapWithHysteresis(3.66,3),4);
@@ -69,7 +90,7 @@ test('import rejects overlap, out-of-bounds, duplicate IDs, and malformed data a
   assert.equal(parseBuild(file([brick()])).bricks.length,1);
   assert.throws(()=>parseBuild(file([brick(),brick({id:'b'})])));
   assert.throws(()=>parseBuild(file([brick(),brick({x:20})])));
-  assert.throws(()=>parseBuild(file([brick({x:99})])));
+  assert.throws(()=>parseBuild(file([brick({y:99})])));
   assert.throws(()=>parseBuild(file([brick({x:0.5})])));
   assert.throws(()=>parseBuild(file([brick({color:'<script>'})])));
   assert.throws(()=>parseBuild('not json'));

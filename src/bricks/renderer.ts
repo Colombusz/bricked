@@ -45,7 +45,7 @@ export class BrickRenderer {
   }
 
   private writeMatrix(batch: Batch, brick: Brick, index: number, drop: number, squash: number) {
-    const d = dimensions(brick), half = CONFIG.baseplateSize / 2;
+    const d = dimensions(brick), half = CONFIG.gridOriginOffset;
     this.transforms.position.set(brick.x + d.width / 2 - half, brick.y * CONFIG.plateHeight + drop, brick.z + d.depth / 2 - half);
     this.transforms.rotation.set(0, brick.rotation * Math.PI / 180, 0);
     this.transforms.scale.set(1, squash, 1); this.transforms.updateMatrix();

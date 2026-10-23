@@ -79,10 +79,10 @@ Settings offers a 0.2×–3× master sensitivity in 0.05 steps. Fine-tune separa
 
 - One stud pitch is one world unit. One plate is 0.4 units high; a brick is three plates.
 - Integer cell origins, 0/90/180/270° rotations and optional mirror state determine occupied-cell masks. Origins belong to the oriented bounding box. Body edges are inset along their normals to show seams, including notch edges.
-- The baseplate is 32×32 studs, with 96 plate layers of build height. Change these in `src/config.ts`.
+- The ground extends indefinitely in X/Z, including negative grid coordinates. The build height remains 96 plate layers, configurable in `src/config.ts`. Existing saves keep their original positions; `gridOriginOffset` retains the original coordinate origin.
 - Without placement locks, top hits place on top, side hits place flush at the hit brick's base layer, and occupied targets lift to the nearest free plate layer.
 - A new piece needs at least one occupied cell above a supporting stud, so overhangs are allowed. Empty notches neither collide nor provide/receive support; rays pass through them. All tiles, including L-tiles, have flat tops and provide no stud support.
-- Invalid targets show red and cannot be committed. **Allow floating bricks** relaxes support only; bounds and collision checks still apply.
+- Invalid targets show red and cannot be committed. **Allow floating bricks** relaxes support only; height limits and collision checks still apply.
 - Removing a supporting piece leaves pieces above it in place. There is no physics simulation.
 
 All 76 parts are available, with 14 Classic colors and arbitrary custom colors:
@@ -97,9 +97,11 @@ Straight sizes range up to 1×12, 4×8 bricks, 8×8 plates, and 6×6 tiles. Each
 
 The L filter shows only L-shaped parts in the current category. Switching tabs or filter leaves the armed piece selected and scrolls the row to its start. Straights are grouped by width; Ls sort by occupied cell count. The strip remains 64 px on desktop and 56 px on phones. A flat placeholder holds each thumbnail’s space while a single offscreen renderer creates requested views in two-piece batches at 2× resolution; unseen views stay unrendered. A collapsed start renders only the armed-part pill thumbnail until you expand the strip. On the narrowest phones, the constraint controls use two compact rows when Mirror is present so the color strip remains clear.
 
+The ground has no buildable horizontal edge. A fixed pool of 9,216 nearby stud instances follows the camera; a generated repeating material covers the far surface and fades into studio fog. Ground geometry stays bounded as you explore. Pan or fly to extend a build; F still frames the pieces you have placed. The original 32×32 size now describes only the starter/stress layout and empty-scene framing, not a placement limit.
+
 ## Saving
 
-Changes save automatically to `localStorage` in the current browser. **Save build** downloads a versioned JSON file. **Build options → Import build** restores a file after checking types, integer coordinates, bounds, IDs, rotations, colors, and overlaps. Malformed known pieces leave the current build intact. Unknown type IDs are skipped with a console warning and an “N pieces skipped” toast; the valid remainder loads normally. Files may contain floating pieces.
+Changes save automatically to `localStorage` in the current browser. **Save build** downloads a versioned JSON file. **Build options → Import build** restores a file after checking types, integer coordinates, height limits, IDs, rotations, colors, and overlaps. Malformed known pieces leave the current build intact. Unknown type IDs are skipped with a console warning and an “N pieces skipped” toast; the valid remainder loads normally. Files may contain floating pieces.
 
 Clear, starter load, and import are undoable. History retains up to 200 commands for the current session. History itself is not saved across reloads. Rename a project by clicking its name in the bottom-left corner.
 
@@ -112,7 +114,8 @@ Fullscreen applies to the application root, including all controls. Browsers wit
 | Module | Responsibility |
 | --- | --- |
 | `src/config.ts` | Grid dimensions and interaction constants |
-| `src/grid.ts` | Sparse occupancy, support, collision, bounds, 3D DDA ray traversal |
+| `src/grid.ts` | Unbounded sparse occupancy, support, collision, height limits, occupied-bounds DDA ray traversal |
+| `src/ground.ts` | Camera-following ground, nearby instanced studs and a repeating far surface |
 | `src/bricks/catalog.ts` | Catalog data, cached oriented/mirrored masks, exposed outlines, mirror eligibility and colors |
 | `src/bricks/geometry.ts` | Lazy beveled outline extrusions, baked mirror variants and occupied-cell studs |
 | `src/bricks/renderer.ts` | Per-type instancing, capacity growth, commit animation |
@@ -142,11 +145,14 @@ npx playwright install chromium
 npm run test:browser
 npm run test:revision
 npm run test:catalog
+npm run test:world
 ```
 
 The browser script starts Vite on port 5174 if necessary. `BRICKED_URL` can point it at an existing server, and `BRICKED_CHROMIUM` can select an existing Chromium executable. It records screenshots and JSON results under `test-results/`.
 
 The revision suite starts its own server on port 5176 and verifies the compact layout, color editor, saved palettes, input isolation, constraints, batched clear, sensitivity ratios, touch popovers, corrupt/unavailable storage, and pre-revision build compatibility.
+
+The world suite verifies placement across both old edges, negative/distant coordinates, camera-following terrain, picking, undo/redo, autosave and bounded ground resources.
 
 The catalog suite also starts port 5176 and checks Q/E vs fly, all catalog views, notch placement in both orders, L rotations/mirrors, lazy thumbnail contexts, phone chips, old/unknown saves, reusable ghost buffers, and mixed-type stress/clear/undo.
 

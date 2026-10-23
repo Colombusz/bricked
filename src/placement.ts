@@ -8,7 +8,7 @@ import { snapWithHysteresis } from './snapping';
 export { snapWithHysteresis } from './snapping';
 
 export function targetBrick(grid: Grid, hit: GridHit, template: Brick, previous?: Brick, output: Brick = {...template}): Brick {
-  const d = dimensions(template), half = CONFIG.baseplateSize / 2;
+  const d = dimensions(template), half = CONFIG.gridOriginOffset;
   let x = snapWithHysteresis(hit.point.x + half - d.width / 2, previous?.x);
   let z = snapWithHysteresis(hit.point.z + half - d.depth / 2, previous?.z);
   let y = 0;
@@ -114,7 +114,7 @@ export class Placement {
       this.layerPlane.constant=-layer*CONFIG.plateHeight;
       const point=this.raycaster.ray.intersectPlane(this.layerPlane,this.planePoint);
       if(!point){this.candidate=null;return;}
-      const d=dimensions(template),half=CONFIG.baseplateSize/2;
+      const d=dimensions(template),half=CONFIG.gridOriginOffset;
       this.candidate=this.locks.apply(template,point.x+half-d.width/2,point.z+half-d.depth/2,this.candidate??undefined,this.candidateBuffer);
     } else {
       if(!this.hit){this.candidate=null;return;}
@@ -122,7 +122,7 @@ export class Placement {
     }
     const check = this.grid.validate(this.candidate, this.allowFloating);
     this.valid = check.valid; this.reason = check.reason;
-    const d = dimensions(this.candidate), half = CONFIG.baseplateSize / 2;
+    const d = dimensions(this.candidate), half = CONFIG.gridOriginOffset;
     this.ghost.position.set(this.candidate.x + d.width / 2 - half, this.candidate.y * CONFIG.plateHeight, this.candidate.z + d.depth / 2 - half);
     this.ghost.rotation.y = this.rotation * Math.PI / 180;
     if(this.valid){this.ghostMaterial.color.copy(this.plasticColor);this.ghostMaterial.emissive.copy(this.plasticColor);}
@@ -132,16 +132,16 @@ export class Placement {
     this.outlineMaterial.color.setHex(this.valid?0x365f79:0xe62438);
     this.drawOutline(this.candidate);
     if(this.locks.axisActive&&this.locks.axis){
-      const axis=this.locks.axis,p=this.ghost.position,y=p.y+0.03,half=CONFIG.baseplateSize/2;
+      const axis=this.locks.axis,p=this.ghost.position,y=p.y+0.03,length=CONFIG.axisGuideLength;
       const positions=this.guide.geometry.getAttribute('position');
-      positions.setXYZ(0,axis==='x'?-half:p.x,y,axis==='z'?-half:p.z);
-      positions.setXYZ(1,axis==='x'?half:p.x,y,axis==='z'?half:p.z);positions.needsUpdate=true;
+      positions.setXYZ(0,axis==='x'?p.x-length:p.x,y,axis==='z'?p.z-length:p.z);
+      positions.setXYZ(1,axis==='x'?p.x+length:p.x,y,axis==='z'?p.z+length:p.z);positions.needsUpdate=true;
       (this.guide.material as LineBasicMaterial).color.setHex(axis==='x'?0xd64937:0x3b7ebe);this.guide.visible=true;
     }
   }
 
   private drawOutline(brick: Brick) {
-    const d = dimensions(brick), half = CONFIG.baseplateSize / 2;
+    const d = dimensions(brick), half = CONFIG.gridOriginOffset;
     const x = brick.x - half, z = brick.z - half, y = brick.y * CONFIG.plateHeight + 0.015;
     const attribute=this.outline.geometry.getAttribute('position');
     for(let i=0;i<d.outline.length;i++)attribute.setXYZ(i,x+d.outline[i].x,y,z+d.outline[i].z);

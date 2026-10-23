@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "tsx --test tests/*.test.ts",
+    "test:world": "node tests/infinite-world.mjs",
     "test:catalog": "node tests/catalog-browser.mjs all",
     "test:browser": "node tests/browser.mjs",
     "test:revision": "node tests/revision-browser.mjs all && node tests/revision-touch.mjs && node tests/revision-storage.mjs"

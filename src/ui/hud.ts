@@ -1,4 +1,3 @@
-import { CONFIG } from '../config';
 import { icon } from './icons';
 
 export interface Actions {
@@ -31,7 +30,7 @@ export class HUD {
         <button class="tool-button" data-action="redo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>${icon('redo',21)}</button>
       </aside>
       <div class="scene-intro"><span class="intro-line"></span><p>A little space<br>for <strong>big ideas.</strong></p><span class="intro-subtitle">Your imagination. No instructions.</span></div>
-      <div class="project-hud"><button class="project-name" data-action="rename" title="Rename build">Untitled build${icon('down',14)}</button><div class="project-details"><span class="brick-count">0 pieces</span><span class="detail-dot"></span><span>${CONFIG.baseplateSize} × ${CONFIG.baseplateSize} studs</span><span class="detail-dot"></span><span class="save-state">Saved locally</span></div></div>
+      <div class="project-hud"><button class="project-name" data-action="rename" title="Rename build">Untitled build${icon('down',14)}</button><div class="project-details"><span class="brick-count">0 pieces</span><span class="detail-dot"></span><span>Infinite ground</span><span class="detail-dot"></span><span class="save-state">Saved locally</span></div></div>
       <div class="bottom-center"><div class="placement-status" hidden></div><div class="controls-hint">${icon('mouse',15)}<span>Click to place</span><span class="hint-divider"></span><span><kbd>R</kbd> Rotate</span><span class="hint-divider"></span><span><kbd>Alt</kbd> + drag to orbit</span><button data-action="help" aria-label="Show all controls">?</button></div></div>
       <div class="view-controls"><div class="axis-gizmo" aria-label="View orientation"><span class="axis-line axis-line-x"></span><span class="axis-line axis-line-y"></span><span class="axis-line axis-line-z"></span><button data-axis="x" aria-label="View along X axis">x</button><button data-axis="y" aria-label="View from above">y</button><button data-axis="z" aria-label="View along Z axis">z</button><span class="axis-center"></span></div><span class="perspective-label">Perspective</span></div>
       <div class="toast" role="status" aria-live="polite" hidden></div>

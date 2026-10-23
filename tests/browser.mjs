@@ -5,6 +5,8 @@ import { spawn } from 'node:child_process';
 
 const url = process.env.BRICKED_URL || 'http://127.0.0.1:5174';
 const results = [];
+const stressOnly=process.argv.includes('--stress-only');
+const reportPath=stressOnly?'test-results/browser-stress.json':'test-results/browser-results.json';
 let server;
 try { await fetch(url); }
 catch {
@@ -24,7 +26,7 @@ const errors=[];
 const monitor=p=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',e=>{if(e.type()==='error')errors.push(e.text());});};
 monitor(page);
 await mkdir('test-results',{recursive:true});
-async function check(name,fn) { const start=performance.now();await fn();results.push({name,status:'PASS',durationMs:Math.round(performance.now()-start)});console.log(`PASS ${name}`); }
+async function check(name,fn) { if(stressOnly&&!name.startsWith('2,000')&&name!=='No browser console or page errors')return;const start=performance.now();await fn();results.push({name,status:'PASS',durationMs:Math.round(performance.now()-start)});console.log(`PASS ${name}`); }
 const count=()=>page.evaluate(()=>window.__bricked.grid.bricks.size);
 const wait=async(ms=250)=>page.waitForTimeout(ms);
 async function hoverWorld(x,y,z) {
@@ -41,7 +43,7 @@ async function select(category,id) {
   if(await button.getAttribute('aria-pressed')!=='true') await button.click();
 }
 try {
-  await page.goto(url);await page.waitForFunction(()=>window.__bricked,{timeout:30000});await wait(500);
+  await page.goto(url);await page.waitForFunction(()=>window.__bricked,{timeout:30000});if(stressOnly)await page.evaluate(()=>window.__bricked.world.renderer.setPixelRatio(.35));await wait(500);
   await check('Studio scene, procedural starter, and rendered thumbnails',async()=>{
     assert.equal(await count(),271);
     assert.equal(await page.locator('canvas#scene').count(),1);
@@ -79,14 +81,16 @@ try {
     assert.deepEqual(positions,[20,20,21,21,20]);
     assert.ok(await page.evaluate(()=>{const b=window.__bricked.placement.candidate;return[b.x,b.y,b.z].every(Number.isInteger);}));
   });
-  await check('Out-of-bounds ghost is red and ignores clicks; UI hides the ghost',async()=>{
-    const before=await count();const p=await hoverWorld(16.4,0,0);
+  await check('Unsupported ghost is red and ignores clicks; UI hides the ghost',async()=>{
+    await page.evaluate(()=>window.__bricked.placement.locks.layer=1);
+    const before=await count();const p=await hoverWorld(16.4,.4,0);
     assert.equal(await page.evaluate(()=>window.__bricked.placement.valid),false);
     assert.equal(await page.evaluate(()=>window.__bricked.placement.ghost.visible),true);
     assert.equal(await page.evaluate(()=>window.__bricked.placement.ghost.material.color.getHexString()),'f3343d');
     await page.mouse.click(p.x,p.y);assert.equal(await count(),before);
     await page.getByRole('button',{name:'Ocean blue #247bc0',exact:true}).hover();
     assert.equal(await page.evaluate(()=>window.__bricked.placement.ghost.visible),false);
+    await page.evaluate(()=>{window.__bricked.placement.locks.clear();window.__bricked.placement.update()});
   });
   await check('Tiles reject top attachment; floating toggle explicitly allows it',async()=>{
     await select('Tiles','tiles-2x2');const p=await hoverWorld(7,0,-6);
@@ -229,18 +233,20 @@ try {
     await page.keyboard.press('Control+Shift+b');assert.equal(await count(),1000);await page.keyboard.press('Control+z');assert.equal(await count(),271);
   });
   await check('2,000 instanced bricks, growing capacity, and no idle scene renders',async()=>{
+    await page.evaluate(()=>{const b=window.__bricked;b.history.replace([]);b.placement.select(null);b.controls.frame()});
+    await page.waitForFunction(()=>{const b=window.__bricked,c=b.controls;return b.world.camera.position.distanceToSquared(c.targetPosition)<1e-6&&b.world.camera.quaternion.angleTo(c.targetQuaternion)<.0001&&!c.framing},null,{timeout:60000});
     await page.evaluate(()=>window.__bricked.stress(2000));await wait(1600);assert.equal(await count(),2000);
     const calls=await page.evaluate(()=>window.__bricked.world.renderer.info.render.calls),variants=await page.evaluate(()=>[...window.__bricked.bricks.batches.values()].filter(b=>b.mesh.count>0).length);assert.ok(variants>=20);assert.ok(calls<=variants+5,`${calls} draw calls for ${variants} variants`);
-    await page.mouse.move(0,0);await wait(500);const frame=await page.evaluate(()=>window.__bricked.world.renderer.info.render.frame);await wait(400);assert.equal(await page.evaluate(()=>window.__bricked.world.renderer.info.render.frame),frame);
+    await page.mouse.move(0,0);await page.waitForFunction(()=>{const b=window.__bricked,c=b.controls;return b.world.camera.position.distanceToSquared(c.targetPosition)<1e-6&&b.world.camera.quaternion.angleTo(c.targetQuaternion)<.0001&&c.velocity.lengthSq()<.00001&&!c.framing});await wait(500);const frame=await page.evaluate(()=>window.__bricked.world.renderer.info.render.frame);await wait(400);assert.equal(await page.evaluate(()=>window.__bricked.world.renderer.info.render.frame),frame);
     results.push({name:'Instancing measurements',bricks:2000,drawCalls:calls});
   });
   await check('No browser console or page errors',async()=>assert.deepEqual(errors,[]));
-  await writeFile('test-results/browser-results.json',JSON.stringify(results,null,2));
+  await writeFile(reportPath,JSON.stringify(results,null,2));
   await rm('test-results/failure.png',{force:true});
   console.log(`\n${results.filter(r=>r.status==='PASS').length} browser checks passed. Screenshots and results in test-results/.`);
 } catch(error) {
-  console.error(error);console.error('Browser errors:',errors);
+  console.error(error);console.error('Browser errors:',errors);if(stressOnly)console.error('Motion state:',await page.evaluate(()=>{const b=window.__bricked,c=b.controls;return {distance:b.world.camera.position.distanceToSquared(c.targetPosition),angle:b.world.camera.quaternion.angleTo(c.targetQuaternion),velocity:c.velocity.lengthSq(),framing:c.framing,frames:b.world.renderer.info.render.frame}}).catch(()=>null));
   await page.screenshot({path:'test-results/failure.png',timeout:5000}).catch(()=>{});
-  await writeFile('test-results/browser-results.json',JSON.stringify({results,error:String(error),errors},null,2));
+  await writeFile(reportPath,JSON.stringify({results,error:String(error),errors},null,2));
   process.exitCode=1;
 } finally {await browser.close();if(server)server.kill('SIGTERM');}

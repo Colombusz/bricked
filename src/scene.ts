@@ -1,7 +1,7 @@
-import { ACESFilmicToneMapping, BoxGeometry, Color, CylinderGeometry, DirectionalLight, Fog, HemisphereLight, InstancedMesh, Matrix4, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, Scene, WebGLRenderer } from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { ACESFilmicToneMapping, DirectionalLight, Fog, HemisphereLight, PCFSoftShadowMap, PerspectiveCamera, PMREMGenerator, Scene, WebGLRenderer } from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CONFIG } from './config';
+import { InfiniteGround } from './ground';
 
 export function createWorld(root: HTMLElement) {
   const renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -19,7 +19,7 @@ export function createWorld(root: HTMLElement) {
   root.prepend(renderer.domElement);
   const scene = new Scene();
   scene.fog = new Fog(0xe9edf1, 100, 200);
-  const camera = new PerspectiveCamera(CONFIG.fov, root.clientWidth / root.clientHeight, 0.1, 250);
+  const camera = new PerspectiveCamera(CONFIG.fov, root.clientWidth / root.clientHeight, 0.1, CONFIG.worldViewDistance);
   const pmrem = new PMREMGenerator(renderer);
   const room = new RoomEnvironment();
   const environment = pmrem.fromScene(room, 0.04);
@@ -31,29 +31,23 @@ export function createWorld(root: HTMLElement) {
   sun.position.set(-20, 35, 20); sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -27, right: 27, top: 27, bottom: -27, near: 1, far: 100 });
+  sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.normalBias = 0.025; sun.shadow.bias = -0.0001; sun.shadow.radius = 4;
   scene.add(sun);
-  const n = CONFIG.baseplateSize;
-  const baseMaterial = new MeshPhysicalMaterial({ color: 0x859a8b, roughness: 0.42, metalness: 0, clearcoat: 0.35 });
-  const base = new Mesh(new RoundedBoxGeometry(n + 0.24, 0.35, n + 0.24, 2, 0.12), baseMaterial);
-  base.position.set(0, -0.175, 0); base.receiveShadow = true; base.castShadow = true; scene.add(base);
-  const studs = new InstancedMesh(new CylinderGeometry(CONFIG.studRadius, CONFIG.studRadius, CONFIG.studHeight, 16), baseMaterial, n * n);
-  const matrix = new Matrix4();
-  for (let x = 0; x < n; x++) for (let z = 0; z < n; z++) {
-    matrix.makeTranslation(x - n / 2 + 0.5, 0.1, z - n / 2 + 0.5);
-    studs.setMatrixAt(x * n + z, matrix);
-  }
-  studs.receiveShadow = true; scene.add(studs);
-  const ground = new Mesh(new PlaneGeometry(1000, 1000), new MeshStandardMaterial({ color: 0xe7ebef, roughness: 1 }));
-  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.38; ground.receiveShadow = true; scene.add(ground);
-  // The darker underside gives the plate a readable edge against the studio floor.
-  const underside = new Mesh(new BoxGeometry(n - 0.1, 0.1, n - 0.1), new MeshStandardMaterial({ color: new Color(0x788e7e), roughness: 0.6 }));
-  underside.position.y = -0.32; scene.add(underside);
+  const ground=new InfiniteGround(scene,Math.min(8,renderer.capabilities.getMaxAnisotropy()));
+  scene.add(sun.target);
+  const updateGround=()=>{
+    if(ground.update(camera)){
+      sun.position.set(ground.centerX-20,35,ground.centerZ+20);sun.target.position.set(ground.centerX,0,ground.centerZ);
+      renderer.shadowMap.needsUpdate=true;
+    }
+    const fog=scene.fog as Fog;fog.near=Math.max(100,camera.position.y*3);fog.far=Math.max(200,camera.position.y*8);
+  };
   renderer.shadowMap.needsUpdate = true;
   const resize = () => {
     camera.aspect = root.clientWidth / root.clientHeight; camera.updateProjectionMatrix();
     renderer.setSize(root.clientWidth, root.clientHeight);
     renderer.shadowMap.needsUpdate = true;
   };
-  return { scene, camera, renderer, resize };
+  return { scene, camera, renderer, resize, ground, updateGround };
 }

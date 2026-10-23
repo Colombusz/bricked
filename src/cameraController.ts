@@ -170,7 +170,7 @@ export class CameraController {
   }
 
   frame(bounds?: Box3) {
-    const size = bounds && !bounds.isEmpty() ? bounds.getSize(new Vector3()) : new Vector3(32, 0, 32);
+    const size = bounds && !bounds.isEmpty() ? bounds.getSize(new Vector3()) : new Vector3(CONFIG.baseplateSize, 0, CONFIG.baseplateSize);
     this.pivot.copy(bounds && !bounds.isEmpty() ? bounds.getCenter(new Vector3()) : new Vector3(0, 0, 0));
     const extent = Math.max(size.x, size.y, size.z, 10);
     const { top, right, bottom, left } = this.viewportInsets;
@@ -209,7 +209,7 @@ export class CameraController {
     this.targetPosition.y = Math.max(CONFIG.cameraMinHeight, this.targetPosition.y);
     const changed = this.camera.position.distanceToSquared(this.targetPosition) > 0.000001 || this.camera.quaternion.angleTo(this.targetQuaternion) > 0.0001;
     this.camera.position.lerp(this.targetPosition, smoothing);
-    this.camera.quaternion.slerp(this.targetQuaternion, smoothing);
+    this.camera.quaternion.slerp(this.targetQuaternion, smoothing).normalize();
     this.camera.updateMatrixWorld();
     if (!changed) this.framing = false;
     return changed || this.velocity.lengthSq() > 0.00001 || this.framing;
