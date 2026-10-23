@@ -1,6 +1,7 @@
 import { TYPES, type Brick } from './bricks/catalog';
 import { CONFIG } from './config';
 import { Grid } from './grid';
+import { readText, writeJSON } from './storage';
 
 export interface BuildFile { version: 1; name: string; bricks: Brick[] }
 export function parseBuild(text: string): BuildFile {
@@ -24,10 +25,10 @@ export function parseBuild(text: string): BuildFile {
   return { version: 1, name: typeof file.name === 'string' ? file.name.slice(0,60) : 'Untitled build', bricks };
 }
 export function loadBuild(): BuildFile | null {
-  const stored = localStorage.getItem(CONFIG.autosaveKey);
+  const stored = readText(CONFIG.autosaveKey);
   return stored ? parseBuild(stored) : null;
 }
-export function saveBuild(name: string, bricks: Brick[]) { localStorage.setItem(CONFIG.autosaveKey, JSON.stringify({ version:1, name, bricks })); }
+export function saveBuild(name: string, bricks: Brick[]) { if(!writeJSON(CONFIG.autosaveKey,{version:1,name,bricks}))throw new Error('Browser storage is unavailable.'); }
 export function exportBuild(name: string, bricks: Brick[]) {
   const blob = new Blob([JSON.stringify({ version:1, name, bricks },null,2)], { type:'application/json' });
   const url = URL.createObjectURL(blob), link = document.createElement('a');

@@ -1,0 +1,19 @@
+.settings-popover { width: min(320px, calc(100% - 20px)); }
+.setting-slider { display: block; margin: 14px 0; }
+.setting-slider > span { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; font-size: 11px; font-weight: 650; }
+.setting-slider output { font-size: 11px; color: #a43b2c; font-weight: 650; }
+.setting-slider input { width: 100%; accent-color: #cf5440; cursor: pointer; height: 22px; margin: 0; }
+.master-sensitivity > span { font-size: 13px; }
+.master-sensitivity output { font-size: 14px; }
+.setting-hint, .setting-footnote { margin: 0; font-size: 10px; color: #5b6874; line-height: 1.6; }
+.fine-tune { margin-top: 15px; border-top: 1px solid #dce3e8; padding-top: 12px; }
+.fine-tune summary { font-size: 12px; font-weight: 650; min-height: 30px; cursor: pointer; }
+.setting-toggle { display: flex; align-items: center; gap: 10px; justify-content: space-between; position: relative; min-height: 43px; font-size: 11px; font-weight: 550; cursor: pointer; }
+.setting-toggle input { position: absolute; right: 0; width: 40px; height: 30px; z-index: 1; opacity: 0; cursor: pointer; }
+.setting-toggle input:checked + .toggle-track { background: #cc543f; }
+.setting-toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+.setting-toggle input:focus-visible + .toggle-track { outline: 3px solid #2374c4; outline-offset: 3px; }
+.settings-options { border-top: 1px solid #dce3e8; border-bottom: 1px solid #dce3e8; margin: 8px 0 15px; padding: 5px 0; }
+.reset-settings { width: 100%; }
+.setting-footnote { text-align: center; margin-top: 12px; }
+@media (max-width: 750px) { .setting-slider input { height: 30px; } .setting-toggle { min-height: 44px; } }

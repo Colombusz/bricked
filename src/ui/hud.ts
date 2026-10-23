@@ -14,6 +14,7 @@ export class HUD {
   private confirm: HTMLDialogElement;
   private renameDialog: HTMLDialogElement;
   private toastTimer = 0;
+  onClear = () => this.actions.clear();
   constructor(root: HTMLElement, private actions: Actions) {
     this.element.className='ui-overlay';
     this.element.innerHTML=`
@@ -52,7 +53,6 @@ export class HUD {
       <div><dt>Fly faster</dt><dd><kbd>Shift</kbd> / wheel</dd></div>
       <div><dt>Frame your build</dt><dd><kbd>F</kbd></dd></div></dl></section></div>
       <div class="touch-note"><strong>On a touchscreen</strong><span>Drag to orbit. Pinch to zoom. Use two fingers to pan. Tap to place.</span></div>
-      <label class="floating-option"><div><strong>Allow floating bricks</strong><span>A little less gravity. A few more possibilities.</span></div><input type="checkbox" id="allow-floating"><span class="toggle-track"></span></label>
       <p class="dialog-footnote">Your build saves automatically in this browser. Save a JSON file to keep it or share it.</p></dialog>
       <dialog class="confirm-dialog"><h2>Make a little room?</h2><p class="confirm-copy">This clears your playground. You can undo it if you change your mind.</p><div class="dialog-buttons"><button class="secondary-button" data-close>Keep building</button><button class="primary-button" data-confirm>Clear playground</button></div></dialog>
       <dialog class="rename-dialog"><form method="dialog"><h2>Name your creation</h2><label for="build-name">Build name</label><input id="build-name" maxlength="60" required autocomplete="off"><div class="dialog-buttons"><button type="button" class="secondary-button" data-close>Cancel</button><button type="submit" class="primary-button">Save name</button></div></form></dialog>`;
@@ -68,7 +68,6 @@ export class HUD {
     this.element.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.addEventListener('click',()=>this.act(button.dataset.action!)));
     this.element.querySelectorAll<HTMLButtonElement>('[data-close]').forEach(button=>button.addEventListener('click',()=>button.closest('dialog')!.close()));
     this.element.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',e=>{ if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();} }));
-    this.element.querySelector<HTMLInputElement>('#allow-floating')!.addEventListener('change',e=>actions.floating((e.target as HTMLInputElement).checked));
     this.element.querySelector<HTMLInputElement>('#import-file')!.addEventListener('change',e=>{const input=e.target as HTMLInputElement;if(input.files?.[0])actions.import(input.files[0]);input.value='';});
     this.renameDialog.querySelector('form')!.addEventListener('submit',e=>{e.preventDefault();const value=this.renameDialog.querySelector('input')!.value.trim();if(value){actions.rename(value);this.renameDialog.close();}});
     window.addEventListener('pointerdown',e=>{if(!(e.target as HTMLElement).closest('.menu-wrap'))this.closeMenu();});
@@ -80,12 +79,13 @@ export class HUD {
     else if(action==='sound')this.actions.mute();
     else if(action==='menu') { const menu=this.element.querySelector<HTMLElement>('.build-menu')!; menu.hidden=!menu.hidden; this.element.querySelector('[data-action="menu"]')!.setAttribute('aria-expanded',String(!menu.hidden)); }
     else if(action==='import')this.element.querySelector<HTMLInputElement>('#import-file')!.click();
-    else if(action==='clear'||action==='starter') {
-      this.confirm.querySelector('h2')!.textContent=action==='clear'?'Make a little room?':'Start with a little inspiration?';
-      this.confirm.querySelector('.confirm-copy')!.textContent=action==='clear'?'This clears your playground. You can undo it if you change your mind.':'Replace this build with the starter house. You can undo this change.';
+    else if(action==='clear')this.onClear();
+    else if(action==='starter') {
+      this.confirm.querySelector('h2')!.textContent='Start with a little inspiration?';
+      this.confirm.querySelector('.confirm-copy')!.textContent='Replace this build with the starter house. You can undo this change.';
       const confirm=this.confirm.querySelector<HTMLButtonElement>('[data-confirm]')!;
-      confirm.textContent=action==='clear'?'Clear playground':'Load starter';
-      confirm.onclick=()=>{this.confirm.close();if(action==='clear')this.actions.clear();else this.actions.starter();};
+      confirm.textContent='Load starter';
+      confirm.onclick=()=>{this.confirm.close();this.actions.starter();};
       this.confirm.showModal();
     }
     else if(action==='rename') { const input=this.renameDialog.querySelector('input')!; input.value=this.element.querySelector('.project-name')!.textContent?.trim()??'';this.renameDialog.showModal();input.select(); }
@@ -93,10 +93,13 @@ export class HUD {
   }
   closeMenu() { this.element.querySelector<HTMLElement>('.build-menu')!.hidden=true;this.element.querySelector('[data-action="menu"]')!.setAttribute('aria-expanded','false'); }
   showHelp() { if(this.help.open)this.help.close();else this.help.showModal(); }
-  toast(message:string,error=false) {
+  toast(message:string,error=false,options?:{duration?:number;actionLabel?:string;onAction?:()=>void}) {
     const element=this.element.querySelector<HTMLElement>('.toast')!;
     element.textContent=message;element.hidden=false;element.classList.toggle('is-error',error);
-    clearTimeout(this.toastTimer);this.toastTimer=window.setTimeout(()=>{element.hidden=true;},3500);
+    if(options?.actionLabel&&options.onAction){
+      element.append(document.createTextNode(' · '));const button=document.createElement('button');button.textContent=options.actionLabel;button.setAttribute('aria-label','Undo clear build');button.onclick=()=>{options.onAction!();element.hidden=true;};element.append(button);
+    }
+    clearTimeout(this.toastTimer);this.toastTimer=window.setTimeout(()=>{element.hidden=true;},options?.duration??3500);
   }
   setProject(name:string,count:number) {
     const button=this.element.querySelector('.project-name')!;

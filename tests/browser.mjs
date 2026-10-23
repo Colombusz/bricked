@@ -32,9 +32,8 @@ async function hoverWorld(x,y,z) {
   await page.mouse.move(p.x,p.y);await wait(50);return p;
 }
 async function clearBuild() {
-  await page.getByRole('button',{name:'Build options',exact:true}).click();
-  await page.getByRole('button',{name:'Clear playground',exact:true}).click();
-  await page.locator('[data-confirm]').click();await wait();
+  await page.getByRole('button',{name:'Clear build',exact:true}).click();
+  await page.locator('.confirm-clear').click();await wait();
 }
 async function select(category,id) {
   if(await page.getByRole('tab',{name:category,exact:true}).getAttribute('aria-selected')!=='true') await page.getByRole('tab',{name:category,exact:true}).click();
@@ -45,15 +44,15 @@ try {
   await page.goto(url);await page.waitForFunction(()=>window.__bricked,{timeout:30000});await wait(500);
   await check('Studio scene, procedural starter, and rendered thumbnails',async()=>{
     assert.equal(await count(),271);
-    assert.equal(await page.locator('canvas').count(),1);
+    assert.equal(await page.locator('canvas#scene').count(),1);
     assert.ok(await page.locator('.part img').evaluateAll(images=>images.every(img=>img.src.startsWith('data:image/png')&&img.naturalWidth>100)));
     await page.screenshot({path:'test-results/desktop.png'});
     // Keep software WebGL rasterization affordable while preserving CSS viewport/input coordinates.
     await page.evaluate(()=>{window.__bricked.world.renderer.setPixelRatio(0.7);window.__bricked.world.resize();});
   });
   await check('Clear confirmation, cancel, undo, and redo',async()=>{
-    await page.getByRole('button',{name:'Build options',exact:true}).click();await page.getByRole('button',{name:'Clear playground',exact:true}).click();
-    await page.getByRole('button',{name:'Keep building',exact:true}).click();assert.equal(await count(),271);
+    await page.getByRole('button',{name:'Clear build',exact:true}).click();
+    await page.locator('.cancel-clear').click();assert.equal(await count(),271);
     await clearBuild();assert.equal(await count(),0);
     await page.getByRole('button',{name:'Undo',exact:true}).click();assert.equal(await count(),271);
     await page.getByRole('button',{name:'Redo',exact:true}).click();assert.equal(await count(),0);
@@ -85,7 +84,7 @@ try {
     assert.equal(await page.evaluate(()=>window.__bricked.placement.ghost.visible),true);
     assert.equal(await page.evaluate(()=>window.__bricked.placement.ghost.material.color.getHexString()),'f3343d');
     await page.mouse.click(p.x,p.y);assert.equal(await count(),before);
-    await page.getByRole('button',{name:'Ocean blue',exact:true}).hover();
+    await page.getByRole('button',{name:'Ocean blue #247bc0',exact:true}).hover();
     assert.equal(await page.evaluate(()=>window.__bricked.placement.ghost.visible),false);
   });
   await check('Tiles reject top attachment; floating toggle explicitly allows it',async()=>{
@@ -95,8 +94,8 @@ try {
     assert.equal(await page.evaluate(()=>window.__bricked.placement.valid),false);
     assert.equal(await page.evaluate(()=>window.__bricked.placement.reason),'Needs a stud underneath');
     const before=await count();await page.mouse.click(q.x,q.y);assert.equal(await count(),before);
-    await page.getByRole('button',{name:'Open controls',exact:true}).click();await page.locator('#allow-floating').check();
-    await page.getByRole('button',{name:'Close controls',exact:true}).click();
+    await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('#allow-floating').check();
+    await page.getByRole('button',{name:'Close settings',exact:true}).click();
     q=await hoverWorld(tile.x+0.65-16,0.4,tile.z+0.65-16);
     assert.equal(await page.evaluate(()=>window.__bricked.placement.valid),true);
     await page.mouse.click(q.x,q.y);await wait();assert.equal(await count(),before+1);
@@ -118,12 +117,12 @@ try {
       for(const button of await page.locator('.part').all()) {if(await button.getAttribute('aria-pressed')!=='true')await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true');}
     }
     const current=page.locator('.part[aria-pressed="true"]');await current.click();assert.equal(await page.evaluate(()=>window.__bricked.placement.selected),null);
-    await page.getByRole('button',{name:'Next part',exact:true}).click();
+    await page.keyboard.press(']');
     const selected=await page.evaluate(()=>window.__bricked.placement.selected);
     await page.keyboard.press(']');assert.notEqual(await page.evaluate(()=>window.__bricked.placement.selected),selected);
     await page.keyboard.press('[');assert.equal(await page.evaluate(()=>window.__bricked.placement.selected),selected);
-    await page.getByRole('button',{name:'Previous part',exact:true}).click();
-    for(const button of await page.locator('.swatch').all()) {await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true');}
+    await page.keyboard.press('[');
+    for(const button of await page.locator('.strip-colors .palette-swatch').all()) {await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true');}
     const rotation=await page.evaluate(()=>window.__bricked.placement.rotation);await page.getByRole('button',{name:'Rotate brick',exact:true}).click();assert.equal(await page.evaluate(()=>window.__bricked.placement.rotation),(rotation+90)%360);
     await page.keyboard.press('r');assert.equal(await page.evaluate(()=>window.__bricked.placement.rotation),(rotation+180)%360);
     await select('Bricks','bricks-2x4');
@@ -167,8 +166,8 @@ try {
   });
   await check('Rename, sound toggle, help keyboard control, and accessible dialog close',async()=>{
     await page.locator('.project-name').click();await page.locator('#build-name').fill('My tiny neighborhood');await page.getByRole('button',{name:'Save name',exact:true}).click();assert.match(await page.locator('.project-name').innerText(),/My tiny neighborhood/);
-    await page.getByRole('button',{name:'Mute sound',exact:true}).click();assert.equal(await page.evaluate(()=>window.__bricked.audio.muted),true);
-    await page.getByRole('button',{name:'Unmute sound',exact:true}).click();assert.equal(await page.evaluate(()=>window.__bricked.audio.muted),false);
+    await page.getByRole('button',{name:'Settings',exact:true}).click();await page.getByRole('checkbox',{name:'Sound',exact:true}).uncheck();assert.equal(await page.evaluate(()=>window.__bricked.audio.muted),true);
+    await page.getByRole('checkbox',{name:'Sound',exact:true}).check();assert.equal(await page.evaluate(()=>window.__bricked.audio.muted),false);await page.getByRole('button',{name:'Close settings',exact:true}).click();
     await page.keyboard.press('?');assert.equal(await page.locator('.controls-dialog').evaluate(e=>e.open),true);await page.keyboard.press('Escape');assert.equal(await page.locator('.controls-dialog').evaluate(e=>e.open),false);
     await page.getByRole('button',{name:'Show all controls',exact:true}).click();await page.getByRole('button',{name:'Close controls',exact:true}).click();
   });
@@ -206,11 +205,11 @@ try {
     const beforePan=await mobile.evaluate(()=>window.__bricked.controls.pivot.toArray());const beforeDistance=await mobile.evaluate(()=>window.__bricked.controls.targetPosition.distanceTo(window.__bricked.controls.pivot));
     await gesture([{x:150,y:440,id:1},{x:250,y:440,id:2}],[[{x:130,y:460,id:1},{x:280,y:460,id:2}],[{x:120,y:480,id:1},{x:300,y:480,id:2}]]);
     assert.notDeepEqual(await mobile.evaluate(()=>window.__bricked.controls.pivot.toArray()),beforePan);assert.notEqual(await mobile.evaluate(()=>window.__bricked.controls.targetPosition.distanceTo(window.__bricked.controls.pivot)),beforeDistance);
-    await mobile.getByRole('button',{name:'Build options',exact:true}).tap();await mobile.getByRole('button',{name:'Clear playground',exact:true}).tap();await mobile.locator('[data-confirm]').tap();
+    await mobile.getByRole('button',{name:'Clear build',exact:true}).tap();await mobile.locator('.confirm-clear').tap();
     await mobile.getByRole('button',{name:'Frame build',exact:true}).tap();await mobile.waitForTimeout(800);
     const p=await mobile.evaluate(()=>{const c=window.__bricked.world.camera,p=c.position.clone().set(0,0,0).project(c);return{x:(p.x+1)*innerWidth/2,y:(1-p.y)*innerHeight/2};});
     await mobile.touchscreen.tap(p.x,p.y);assert.equal(await mobile.evaluate(()=>window.__bricked.grid.bricks.size),1);
-    const list=mobile.locator('.parts-list');await list.evaluate(e=>e.scrollLeft=0);await gesture([{x:285,y:180,id:1}],[[{x:250,y:180,id:1}],[{x:190,y:180,id:1}],[{x:125,y:180,id:1}]]);assert.ok(await list.evaluate(e=>e.scrollLeft)>0);
+    const list=mobile.locator('.parts-list');await list.evaluate(e=>e.scrollLeft=0);const lb=await list.boundingBox();const sy=lb.y+lb.height/2,sx=lb.x+lb.width-8;await gesture([{x:sx,y:sy,id:1}],[[{x:sx-25,y:sy,id:1}],[{x:sx-65,y:sy,id:1}],[{x:sx-100,y:sy,id:1}]]);assert.ok(await list.evaluate(e=>e.scrollLeft)>0);
     assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await mobile.screenshot({path:'test-results/mobile.png'});
     for(const viewport of [{width:320,height:568},{width:844,height:390}]) {

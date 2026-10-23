@@ -45,6 +45,11 @@ test('hysteresis holds boundaries and every output is integral', () => {
 test('removal restores occupancy and supports repeat placement', () => {
   const grid=new Grid(); grid.add(brick()); grid.remove('a'); assert.equal(grid.occupancy.size,0); assert.ok(grid.add(brick()));
 });
+test('batched clear is one command and restoring it preserves every brick identity',()=>{
+  const grid=new Grid(),history=new History(grid);history.place(brick());history.place(brick({id:'b',x:13,y:3}));
+  const before=grid.snapshot();history.clear();assert.equal(grid.bricks.size,0);assert.equal(grid.occupancy.size,0);
+  history.undo();assert.deepEqual(grid.snapshot(),before);assert.equal(grid.occupancy.size,48);history.redo();assert.equal(grid.bricks.size,0);
+});
 test('starter build obeys collision and support rules for every piece', () => {
   const grid=new Grid();
   for(const part of starterBuild()) { assert.ok(grid.validate(part).valid, `${part.id} must be supported`);assert.ok(grid.add(part)); }

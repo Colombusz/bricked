@@ -10,6 +10,10 @@ export class BrickRenderer {
   private animations = new Map<string, number>();
   readonly material = new MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.25, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.15 });
   constructor(private scene: Scene) {}
+  clear() {
+    this.animations.clear();
+    for(const batch of this.batches.values()){batch.mesh.count=0;batch.bricks=[];}
+  }
   sync(bricks: Iterable<Brick>) {
     const groups = new Map<string, Brick[]>();
     for (const brick of bricks) {

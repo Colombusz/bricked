@@ -1,18 +1,18 @@
 import type { Brick } from './bricks/catalog';
 import { Grid } from './grid';
 
-interface Command { execute(): void; undo(): void }
+interface Command { execute(): void; undo(): void; kind?: 'clear' }
 export class History {
   private past: Command[] = [];
   private future: Command[] = [];
-  onChange = () => {};
+  onChange = (_kind: 'update' | 'clear') => {};
   constructor(private grid: Grid) {}
   get canUndo() { return this.past.length > 0; }
   get canRedo() { return this.future.length > 0; }
   private run(command: Command) {
     command.execute(); this.past.push(command); this.future = [];
     if (this.past.length > 200) this.past.shift();
-    this.onChange();
+    this.onChange(command.kind ?? 'update');
   }
   place(brick: Brick) {
     if (this.grid.bricks.has(brick.id) || this.grid.collides(brick) || !this.grid.inBounds(brick)) return false;
@@ -27,6 +27,11 @@ export class History {
     const before = this.grid.snapshot();
     this.run({ execute: () => this.grid.replace(next), undo: () => this.grid.replace(before) });
   }
-  undo() { const command = this.past.pop(); if (command) { command.undo(); this.future.push(command); this.onChange(); } }
-  redo() { const command = this.future.pop(); if (command) { command.execute(); this.past.push(command); this.onChange(); } }
+  clear() {
+    if(!this.grid.bricks.size)return;
+    const before=this.grid.snapshot();
+    this.run({kind:'clear',execute:()=>this.grid.clear(),undo:()=>this.grid.replace(before)});
+  }
+  undo() { const command = this.past.pop(); if (command) { command.undo(); this.future.push(command); this.onChange('update'); } }
+  redo() { const command = this.future.pop(); if (command) { command.execute(); this.past.push(command); this.onChange(command.kind ?? 'update'); } }
 }

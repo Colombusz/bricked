@@ -5,7 +5,7 @@ import { brickGeometry } from './geometry';
 
 export function renderThumbnails() {
   const renderer = new WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
-  renderer.setSize(164, 108); renderer.setPixelRatio(1.5);
+  renderer.setSize(164, 108); renderer.setPixelRatio(2);
   renderer.setClearColor(0x000000, 0); renderer.toneMapping = ACESFilmicToneMapping; renderer.toneMappingExposure = 1;
   const scene = new Scene();
   const room = new RoomEnvironment(), pmrem = new PMREMGenerator(renderer);

@@ -1,8 +1,10 @@
+import { readText, writeText } from './storage';
+
 export class BrickAudio {
   muted = false;
   private context: AudioContext | null = null;
-  constructor() { try { this.muted = localStorage.getItem('bricked.muted') === 'true'; } catch { /* Sound stays usable without storage. */ } }
-  toggle() { this.muted = !this.muted; try { localStorage.setItem('bricked.muted',String(this.muted)); } catch { /* Keep the session preference. */ } }
+  constructor() { this.muted = readText('bricked.muted') === 'true'; }
+  toggle() { this.muted = !this.muted; writeText('bricked.muted',String(this.muted)); }
   click() {
     if (this.muted) return;
     try {

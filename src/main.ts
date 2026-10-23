@@ -1,5 +1,8 @@
 import './style.css';
 import './ui.css';
+import './ui/workspace.css';
+import './ui/colorPanel/styles.css';
+import './ui/settings.css';
 import { createWorld } from './scene';
 import { CameraController } from './cameraController';
 import { Grid } from './grid';
@@ -13,6 +16,14 @@ import { BrickAudio } from './audio';
 import { exportBuild, loadBuild, parseBuild, saveBuild } from './persistence';
 import { starterBuild, stressBuild } from './starter';
 import { CONFIG } from './config';
+import { isEditing } from './input';
+import { ColorPanel } from './ui/colorPanel';
+import { PaletteStore } from './ui/colorPanel/paletteStore';
+import { Popover } from './ui/popover';
+import { ConstraintChips } from './ui/constraints';
+import { Toolbar } from './ui/toolbar';
+import { SettingsStore } from './settingsStore';
+import { SettingsPanel } from './ui/settings';
 
 function start() {
   const root = document.querySelector<HTMLElement>('#app')!;
@@ -24,6 +35,8 @@ function start() {
   const placement = new Placement(grid, world.scene, world.camera, canvas);
   const history = new History(grid);
   const audio = new BrickAudio();
+  const settings = new SettingsStore();
+  controls.settings=settings.value;placement.allowFloating=settings.value.allowFloating;audio.muted=!settings.value.sound;
   let projectName = 'The little house';
   let storageError = '';
   try {
@@ -33,6 +46,12 @@ function start() {
   } catch { grid.replace(starterBuild()); storageError = 'Could not restore the saved build. You can still build and save a file.'; }
   bricks.sync(grid.bricks.values());
   let dirty = true;
+  const metrics = {lastClearMs:0};
+  const palettes = new PaletteStore();
+  placement.setColor(palettes.selectedColor);
+  const colorPanel = new ColorPanel(root, palettes);
+  const constraintChips = new ConstraintChips(root, placement);
+  palettes.subscribe(() => { placement.setColor(palettes.selectedColor); dirty = true; });
   let saveTimer = 0;
   const carousel = new Carousel(placement); root.append(carousel.element);
   const refreshTools = () => { carousel.refresh(); hud.setTools(placement.erasing, history.canUndo, history.canRedo); dirty = true; };
@@ -45,14 +64,19 @@ function start() {
   };
   const setTool = (erasing: boolean) => {
     placement.erasing = erasing;
+    if(erasing)placement.locks.clear();
     if (!erasing && !placement.selected) placement.select('bricks-2x4');
     placement.update(); canvas.classList.toggle('erasing',erasing); refreshTools();
+  };
+  const clearBuild = () => {
+    const start=performance.now();history.clear();metrics.lastClearMs=performance.now()-start;
+    hud.toast('Build cleared',false,{duration:CONFIG.clearToastDuration,actionLabel:'Undo',onAction:()=>history.undo()});
   };
   const hud = new HUD(root, {
     tool: () => setTool(false), erase: () => setTool(true), rotate: () => { placement.rotate(); dirty = true; },
     frame: () => controls.frame(grid.bounds()), undo: () => history.undo(), redo: () => history.redo(),
-    mute: () => { audio.toggle(); hud.setSound(audio.muted); },
-    floating: value => { placement.allowFloating = value; placement.update(); dirty = true; },
+    mute: () => settings.set('sound',!settings.value.sound),
+    floating: value => settings.set('allowFloating',value),
     save: () => { exportBuild(projectName,grid.snapshot()); hud.toast('Build saved as a JSON file.'); },
     import: async file => {
       try {
@@ -61,25 +85,36 @@ function start() {
         history.replace(imported.bricks); controls.frame(grid.bounds()); hud.toast('Your build is ready.');
       } catch(error) { hud.toast(error instanceof Error?error.message:'Could not open this build.',true); }
     },
-    clear: () => { history.replace([]); hud.toast('A fresh playground. Undo to bring your build back.'); },
+    clear: clearBuild,
     starter: () => { projectName='The little house'; history.replace(starterBuild()); controls.frame(); hud.toast('A little inspiration. Every piece is yours to change.'); },
     rename: name => { projectName=name; hud.setProject(projectName,grid.bricks.size); persist(); },
   });
   hud.setProject(projectName,grid.bricks.size); hud.setSound(audio.muted);
+  const toolbar = new Toolbar(root,hud.element.querySelector('.tool-rail')!,clearBuild,()=>hud.showHelp());
+  toolbar.refresh(grid.bricks.size);hud.onClear=()=>toolbar.confirmClear();
+  toolbar.mountSettings();
+  const settingsPanel = new SettingsPanel(root,toolbar.settingsButton,settings);
+  settings.subscribe(value=>{controls.settings=value;placement.allowFloating=value.allowFloating;audio.muted=!value.sound;hud.setSound(audio.muted);placement.update();dirty=true;});
+  hud.element.dataset.overlay = '';
+  const frameArea = () => {
+    const style=getComputedStyle(root),safe=(side:string)=>parseFloat(style.getPropertyValue(`--safe-${side}`))||0;
+    controls.setViewportInsets(root.classList.contains('ui-hidden') ? {top:0,right:0,bottom:0,left:0} : {top:(carousel.collapsed?60:80)+safe('top'),right:76+safe('right'),bottom:(root.clientWidth<750?180:100)+safe('bottom'),left:16+safe('left')});
+  };
   if(storageError)hud.toast(storageError,true);
-  const fullscreen = new Fullscreen(root,hud.fullscreenButton,() => { world.resize(); dirty=true; });
-  const changed = () => {
-    bricks.sync(grid.bricks.values()); placement.update();
+  const fullscreen = new Fullscreen(root,hud.fullscreenButton,() => { world.resize(); frameArea(); dirty=true; });
+  const changed = (kind: 'update' | 'clear' = 'update') => {
+    if(kind==='clear')bricks.clear();else bricks.sync(grid.bricks.values()); placement.update();
     world.renderer.shadowMap.needsUpdate=true; dirty=true;
     hud.setProject(projectName,grid.bricks.size); refreshTools(); persist();
+    toolbar.refresh(grid.bricks.size);
   };
   history.onChange=changed;
   const syncInteraction=() => { placement.blocked=controls.navigating||Boolean(document.querySelector('dialog[open]')); placement.update(); dirty=true; };
   controls.onChange=syncInteraction;
   const modalObserver=new MutationObserver(syncInteraction);
   hud.element.querySelectorAll('dialog').forEach(dialog=>modalObserver.observe(dialog,{attributes:true,attributeFilter:['open']}));
-  placement.onChange=() => { dirty=true; };
-  carousel.onChange=() => { canvas.classList.remove('erasing'); refreshTools(); };
+  placement.onChange=() => { constraintChips.refresh(); dirty=true; };
+  carousel.onChange=() => { canvas.classList.remove('erasing'); refreshTools(); frameArea(); };
   hud.element.querySelectorAll<HTMLButtonElement>('[data-axis]').forEach(button=>button.addEventListener('click',()=>controls.snapAxis(button.dataset.axis as 'x'|'y'|'z')));
 
   let press: { id:number; x:number; y:number; distance:number; cancelled:boolean } | null = null;
@@ -102,13 +137,15 @@ function start() {
       return;
     }
     const brick=placement.commit();
-    if(brick&&history.place(brick)) { bricks.animate(brick.id); audio.click(); dirty=true; }
+    if(brick&&history.place(brick)) { palettes.recordUsed(brick.color); bricks.animate(brick.id); audio.click(); dirty=true; }
   });
   window.addEventListener('pointercancel',()=>{press=null;});
   window.addEventListener('blur',()=>{press=null;});
+  window.addEventListener('keyup',e=>{if(e.code==='ShiftLeft'||e.code==='ShiftRight')placement.holdAxis(false);});
+  window.addEventListener('blur',()=>placement.holdAxis(false));
   window.addEventListener('keydown', e => {
     const target=e.target as HTMLElement;
-    if(target instanceof HTMLInputElement||target instanceof HTMLTextAreaElement||target.isContentEditable)return;
+    if(isEditing(target))return;
     if(document.querySelector('dialog[open]'))return;
     const modifier=e.ctrlKey||e.metaKey;
     if(modifier&&e.code==='KeyZ') { e.preventDefault(); if(e.shiftKey)history.redo();else history.undo();return; }
@@ -116,8 +153,13 @@ function start() {
     if(modifier&&e.code==='KeyS') { e.preventDefault();exportBuild(projectName,grid.snapshot());return; }
     if(modifier&&e.shiftKey&&e.code==='KeyB') { e.preventDefault(); history.replace(stressBuild()); controls.frame(); hud.toast('1,000 pieces, ready for a stress test.');return; }
     if(controls.flying||modifier)return;
+    if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)placement.holdAxis(true);
+    if(e.code==='KeyL'&&!e.repeat)placement.toggleLayer();
+    if(e.code==='PageUp'||e.code==='PageDown'){if(placement.locks.layer!==null){e.preventDefault();placement.stepLayer(e.code==='PageUp'?1:-1);}}
     if(e.code==='KeyR'&&!e.repeat)placement.rotate();
     if(e.code==='KeyF')controls.frame(grid.bounds());
+    if(e.code==='KeyH'&&!e.repeat) { Popover.closeAll(); root.classList.toggle('ui-hidden'); frameArea(); if(root.classList.contains('ui-hidden'))hud.toast('UI hidden, press H'); }
+    if(/^Digit[1-9]$/.test(e.code))colorPanel.selectIndex(Number(e.code.slice(-1))-1);
     if(e.code==='KeyB')setTool(false);
     if(e.code==='KeyX'||e.code==='Delete'||e.code==='Backspace') {
       e.preventDefault();
@@ -136,13 +178,14 @@ function start() {
     if(controls.update(dt)) { placement.update();dirty=true; }
     if(bricks.update(now)) { dirty=true;world.renderer.shadowMap.needsUpdate=true; }
     if(dirty) {
+      constraintChips.refresh();
       hud.setPlacement(placement.reason,placement.ghost.visible&&!placement.valid);
       world.renderer.render(world.scene,world.camera);dirty=false;
     }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
-  const resize=()=>{world.resize();dirty=true;};
+  const resize=()=>{world.resize();frameArea();dirty=true;};
   new ResizeObserver(resize).observe(root);
   window.addEventListener('resize',resize);
   document.addEventListener('visibilitychange',()=>{previous=performance.now();dirty=true;});
@@ -150,7 +193,7 @@ function start() {
   document.querySelector('#loading')?.remove();
   if(!storageError)persist();
   // Kept off the interface: useful for placement checks and repeatable performance captures.
-  Object.assign(window,{__bricked:{world,controls,grid,bricks,placement,history,carousel,fullscreen,audio,hud,stress:(count=1000)=>{history.replace(stressBuild(count));controls.frame();}}});
+  Object.assign(window,{__bricked:{world,controls,grid,bricks,placement,history,carousel,fullscreen,audio,hud,palettes,colorPanel,constraintChips,toolbar,settings,settingsPanel,metrics,stress:(count=1000)=>{history.replace(stressBuild(count));controls.frame();}}});
 }
 
 try { start(); }
