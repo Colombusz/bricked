@@ -10,6 +10,7 @@ export class Toolbar {
   constructor(root: HTMLElement, private rail: HTMLElement, clear: ()=>void, help: ()=>void) {
     this.clearButton=this.button('trash','Clear build');this.clearButton.classList.add('danger');
     this.settingsButton=this.button('settings','Settings');this.helpButton=this.button('help','Open controls');
+    this.helpButton.title='Controls (?)';this.helpButton.setAttribute('aria-haspopup','dialog');this.helpButton.setAttribute('aria-controls','controls-dialog');
     rail.append(this.clearButton,this.helpButton);this.helpButton.addEventListener('click',help);
     this.clearPopover=new Popover(root,this.clearButton,'Clear build','clear-popover');
     this.clearPopover.content.innerHTML=`<p class="clear-question"></p><div class="inline-actions"><button class="cancel-clear">Cancel</button><button class="confirm-clear danger">Clear</button></div>`;

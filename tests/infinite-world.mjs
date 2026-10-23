@@ -1,7 +1,7 @@
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {revisionServer} from './devServer.mjs';
+import {revisionServer,dismissControls} from './devServer.mjs';
 const server=await revisionServer();
 const browser=await chromium.launch({executablePath:chromium.executablePath(),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 const page=await browser.newPage({viewport:{width:1280,height:900},deviceScaleFactor:.7}),errors=[],results=[];
@@ -9,7 +9,7 @@ page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()
 async function check(name,fn){await fn();results.push({name,status:'PASS'});console.log('PASS',name)}
 async function point(x,y,z){return page.evaluate(([x,y,z])=>{const c=window.__bricked.world.camera,p=c.position.clone().set(x,y,z).project(c);return{x:(p.x+1)*innerWidth/2,y:(1-p.y)*innerHeight/2}},[x,y,z])}
 try{
- await page.goto(server.url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);await mkdir('test-results',{recursive:true});
+ await page.goto(server.url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);await dismissControls(page);await mkdir('test-results',{recursive:true});
  await page.waitForFunction(()=>[...document.querySelectorAll('.part img')].every(i=>i.naturalWidth>0));
  await page.screenshot({path:'test-results/infinite-world.png'});
  await check('Both former baseplate edges accept real mouse placement, including negative origins',async()=>{
@@ -27,7 +27,7 @@ try{
   await page.keyboard.press('Control+z');assert.equal(await page.evaluate(()=>window.__bricked.grid.bricks.size),2);await page.keyboard.press('Control+Shift+z');assert.equal(await page.evaluate(()=>window.__bricked.grid.bricks.size),3);
  });
  await check('Distant autosave reload, picking and deletion retain coordinates without aliases',async()=>{
-  const before=await page.evaluate(()=>window.__bricked.grid.snapshot());await page.waitForFunction(()=>JSON.parse(localStorage.getItem('bricked.build.v1')).bricks.length===3);await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);assert.deepEqual(await page.evaluate(()=>window.__bricked.grid.snapshot()),before);
+  const before=await page.evaluate(()=>window.__bricked.grid.snapshot());await page.waitForFunction(()=>JSON.parse(localStorage.getItem('bricked.build.v1')).bricks.length===3);await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);await dismissControls(page);assert.deepEqual(await page.evaluate(()=>window.__bricked.grid.snapshot()),before);
   await page.evaluate(()=>{const b=window.__bricked,offset=b.controls.targetPosition.clone().set(1024,0,-768);b.controls.targetPosition.add(offset);b.controls.pivot.add(offset);b.placement.select('bricks-1x1')});await page.waitForFunction(()=>window.__bricked.world.camera.position.distanceTo(window.__bricked.controls.targetPosition)<.02);
   const far=before.find(b=>b.x>1000),p=await point(far.x+1.5-16,.4,far.z+2.5-16);await page.mouse.move(p.x,p.y);assert.equal(await page.evaluate(()=>window.__bricked.placement.hit?.brick?.id),far.id);await page.keyboard.press('Delete');assert.equal(await page.evaluate(()=>window.__bricked.grid.bricks.size),2);await page.keyboard.press('Control+z');assert.equal(await page.evaluate(()=>window.__bricked.grid.bricks.size),3);
  });

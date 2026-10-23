@@ -1,7 +1,7 @@
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {revisionServer} from './devServer.mjs';
+import {revisionServer,dismissControls} from './devServer.mjs';
 const stage=process.argv[2]||'all',server=await revisionServer();
 const browser=await chromium.launch({executablePath:chromium.executablePath(),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 const context=await browser.newContext({viewport:{width:1440,height:1000},deviceScaleFactor:.5});
@@ -9,7 +9,7 @@ await context.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getC
 const page=await context.newPage(),errors=[],results=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text())});
 async function check(name,fn){await fn();results.push({name,status:'PASS'});console.log('PASS',name)}
-async function ready(){await page.goto(server.url,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForFunction(()=>window.__bricked,null,{timeout:60000});}
+async function ready(){await page.goto(server.url,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForFunction(()=>window.__bricked,null,{timeout:60000});await dismissControls(page);}
 try{
  await ready();
  if(stage==='1'||stage==='all'){

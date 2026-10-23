@@ -1,4 +1,5 @@
 import { icon } from './icons';
+import { Popover } from './popover';
 
 export interface Actions {
   tool(): void; erase(): void; rotate(): void; frame(): void; undo(): void; redo(): void;
@@ -35,8 +36,8 @@ export class HUD {
       <div class="view-controls"><div class="axis-gizmo" aria-label="View orientation"><span class="axis-line axis-line-x"></span><span class="axis-line axis-line-y"></span><span class="axis-line axis-line-z"></span><button data-axis="x" aria-label="View along X axis">x</button><button data-axis="y" aria-label="View from above">y</button><button data-axis="z" aria-label="View along Z axis">z</button><span class="axis-center"></span></div><span class="perspective-label">Perspective</span></div>
       <div class="toast" role="status" aria-live="polite" hidden></div>
       <input type="file" id="import-file" accept=".json,application/json" hidden>
-      <dialog class="controls-dialog"><div class="dialog-top"><div><span class="dialog-eyebrow">Make yourself at home</span><h2>A few ways to play.</h2></div><button class="icon-button" data-close aria-label="Close controls">${icon('close')}</button></div>
-      <div class="controls-grid"><section><h3>Build something</h3><dl>
+      <dialog id="controls-dialog" class="controls-dialog"><div class="dialog-top"><div><span class="dialog-eyebrow">Make yourself at home</span><h2>A few ways to play.</h2></div><button class="icon-button" data-close aria-label="Close controls" autofocus>${icon('close')}</button></div>
+      <div class="controls-content"><div class="controls-grid"><section><h3>Build something</h3><dl>
       <div><dt>Place a piece</dt><dd>Left click / tap</dd></div>
       <div><dt>Rotate / mirror piece</dt><dd><kbd>R</kbd> / <kbd>M</kbd></dd></div>
       <div><dt>Layer down / up</dt><dd><kbd>Q</kbd> / <kbd>E</kbd></dd></div>
@@ -54,7 +55,8 @@ export class HUD {
       <div><dt>Fly faster</dt><dd><kbd>Shift</kbd> / wheel</dd></div>
       <div><dt>Frame your build</dt><dd><kbd>F</kbd></dd></div></dl></section></div>
       <div class="touch-note"><strong>On a touchscreen</strong><span>Drag to orbit. Pinch to zoom. Use two fingers to pan. Tap to place.</span></div>
-      <p class="dialog-footnote">Your build saves automatically in this browser. Save a JSON file to keep it or share it.</p></dialog>
+      <p class="dialog-footnote">Your build saves automatically in this browser. Save a JSON file to keep it or share it.</p></div>
+      <div class="controls-footer"><span>Open this guide anytime with <kbd>?</kbd>.</span><button class="primary-button" data-close>Start building</button></div></dialog>
       <dialog class="confirm-dialog"><h2>Make a little room?</h2><p class="confirm-copy">This clears your playground. You can undo it if you change your mind.</p><div class="dialog-buttons"><button class="secondary-button" data-close>Keep building</button><button class="primary-button" data-confirm>Clear playground</button></div></dialog>
       <dialog class="rename-dialog"><form method="dialog"><h2>Name your creation</h2><label for="build-name">Build name</label><input id="build-name" maxlength="60" required autocomplete="off"><div class="dialog-buttons"><button type="button" class="secondary-button" data-close>Cancel</button><button type="submit" class="primary-button">Save name</button></div></form></dialog>`;
     this.element.querySelector('[data-action="save"]')!.setAttribute('aria-label','Save build');
@@ -64,6 +66,7 @@ export class HUD {
     this.confirm=this.element.querySelector('.confirm-dialog')!;
     this.renameDialog=this.element.querySelector('.rename-dialog')!;
     this.help.setAttribute('aria-label','Building and camera controls');
+    this.element.querySelectorAll('[data-action="help"]').forEach(button=>{button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-controls',this.help.id);});
     this.confirm.setAttribute('aria-label','Confirm playground replacement');
     this.renameDialog.setAttribute('aria-label','Name your creation');
     this.element.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.addEventListener('click',()=>this.act(button.dataset.action!)));
@@ -93,7 +96,7 @@ export class HUD {
     else if(action in this.actions)(this.actions[action as keyof Actions] as ()=>void)();
   }
   closeMenu() { this.element.querySelector<HTMLElement>('.build-menu')!.hidden=true;this.element.querySelector('[data-action="menu"]')!.setAttribute('aria-expanded','false'); }
-  showHelp() { if(this.help.open)this.help.close();else this.help.showModal(); }
+  showHelp() { this.closeMenu();Popover.closeAll();if(!this.help.open)this.help.showModal(); }
   toast(message:string,error=false,options?:{duration?:number;actionLabel?:string;onAction?:()=>void}) {
     const element=this.element.querySelector<HTMLElement>('.toast')!;
     element.textContent=message;element.hidden=false;element.classList.toggle('is-error',error);

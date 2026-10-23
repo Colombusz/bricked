@@ -1,4 +1,4 @@
-import {chromium} from '@playwright/test';import assert from 'node:assert/strict';import {writeFile,mkdir} from 'node:fs/promises';import {revisionServer} from './devServer.mjs';
+import {chromium} from '@playwright/test';import assert from 'node:assert/strict';import {writeFile,mkdir} from 'node:fs/promises';import {revisionServer,dismissControls} from './devServer.mjs';
 const server=await revisionServer();const browser=await chromium.launch({executablePath:chromium.executablePath(),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});const errors=[],results=[];
 try{
  await mkdir('test-results',{recursive:true});
@@ -11,7 +11,7 @@ try{
    localStorage.setItem('bricked.carousel.v1',JSON.stringify({version:99,collapsed:true}));
    localStorage.setItem('bricked.build.v1',JSON.stringify({version:1,name:'Before the palette revision',bricks:[{id:'legacy-a',type:'bricks-2x4',color:'#e74c3c',rotation:0,x:12,y:0,z:12},{id:'legacy-b',type:'bricks-2x4',color:'#247bc0',rotation:0,x:13,y:3,z:12}]}));
   },unavailable);
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text())});await page.goto(server.url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text())});await page.goto(server.url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);await dismissControls(page);
   if(unavailable){
    await page.evaluate(()=>{window.__bricked.palettes.selectColor('#12ab89');window.__bricked.palettes.create('Memory only');window.__bricked.settings.set('master',2)});
    assert.equal(await page.evaluate(()=>window.__bricked.placement.color),'#12ab89');assert.equal(await page.evaluate(()=>window.__bricked.palettes.active.name),'Memory only');assert.equal(await page.evaluate(()=>window.__bricked.controls.settings.master),2);

@@ -38,6 +38,7 @@
 .parts-tray[data-overlay], .parts-list { pointer-events: auto; }
 #app.ui-hidden > [data-overlay] { visibility: hidden; }
 #app.ui-hidden .toast { visibility: visible; }
+#app.ui-hidden .controls-dialog { visibility: visible; }
 @media (max-width: 1200px) { .controls-hint { display: none; } }
 @media (max-width: 750px) {
   .parts-tray { max-width: calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); height: 56px; padding: 4px; gap: 3px; border-radius: 13px; }

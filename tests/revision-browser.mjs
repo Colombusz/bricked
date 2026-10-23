@@ -1,7 +1,7 @@
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile,rm} from 'node:fs/promises';
-import {revisionServer} from './devServer.mjs';
+import {revisionServer,dismissControls} from './devServer.mjs';
 const stage=process.argv[2]||'all';
 const server=await revisionServer();
 const browser=await chromium.launch({executablePath:chromium.executablePath(),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
@@ -10,7 +10,7 @@ const page=await context.newPage(),errors=[],results=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text())});
 await mkdir('test-results',{recursive:true});
 async function check(name,fn){await fn();results.push({name,status:'PASS'});console.log('PASS',name);}
-async function ready(){await page.goto(server.url,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForFunction(()=>window.__bricked,null,{timeout:60000});}
+async function ready(){await page.goto(server.url,{waitUntil:'domcontentloaded',timeout:60000});await page.waitForFunction(()=>window.__bricked,null,{timeout:60000});await dismissControls(page);}
 async function hover(x,y,z){const p=await page.evaluate(([x,y,z])=>{const c=window.__bricked.world.camera,p=c.position.clone().set(x,y,z).project(c);return{x:(p.x+1)*innerWidth/2,y:(1-p.y)*innerHeight/2}},[x,y,z]);await page.mouse.move(p.x,p.y);return p;}
 try {
 await ready();

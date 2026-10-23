@@ -2,6 +2,7 @@ import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { dismissControls } from './devServer.mjs';
 
 const url = process.env.BRICKED_URL || 'http://127.0.0.1:5174';
 const results = [];
@@ -43,7 +44,7 @@ async function select(category,id) {
   if(await button.getAttribute('aria-pressed')!=='true') await button.click();
 }
 try {
-  await page.goto(url);await page.waitForFunction(()=>window.__bricked,{timeout:30000});if(stressOnly)await page.evaluate(()=>window.__bricked.world.renderer.setPixelRatio(.35));await wait(500);
+  await page.goto(url);await page.waitForFunction(()=>window.__bricked,{timeout:30000});await dismissControls(page);if(stressOnly)await page.evaluate(()=>window.__bricked.world.renderer.setPixelRatio(.35));await wait(500);
   await check('Studio scene, procedural starter, and rendered thumbnails',async()=>{
     assert.equal(await count(),271);
     assert.equal(await page.locator('canvas#scene').count(),1);
@@ -186,7 +187,7 @@ try {
     await page.getByRole('button',{name:'Build options',exact:true}).click();await page.getByRole('button',{name:'Import build',exact:true}).click();
     const chooser=await chooserPromise;await chooser.setFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{wrong')});await wait();assert.match(await page.locator('.toast').innerText(),/not valid JSON/);assert.equal(await count(),before.length);
     await clearBuild();assert.equal(await count(),0);await page.locator('#import-file').setInputFiles('test-results/export.json');await wait();assert.deepEqual(await page.evaluate(()=>window.__bricked.grid.snapshot()),before);
-    await wait(400);await page.reload();await page.waitForFunction(()=>window.__bricked);assert.deepEqual(await page.evaluate(()=>window.__bricked.grid.snapshot()),before);
+    await wait(400);await page.reload();await page.waitForFunction(()=>window.__bricked);await dismissControls(page);assert.deepEqual(await page.evaluate(()=>window.__bricked.grid.snapshot()),before);
   });
   await check('Mouse wheel carousel and responsive layouts at 600, 768, and 1024px',async()=>{
     for(const width of [600,768,1024]) {
@@ -198,7 +199,7 @@ try {
   });
   await check('Touch tap, orbit, pinch/pan, carousel swipe and mobile layout',async()=>{
     const mobileContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
-    const mobile=await mobileContext.newPage();monitor(mobile);await mobile.goto(url,{waitUntil:'domcontentloaded',timeout:60000});await mobile.waitForFunction(()=>window.__bricked,null,{timeout:60000});await mobile.waitForTimeout(500);
+    const mobile=await mobileContext.newPage();monitor(mobile);await mobile.goto(url,{waitUntil:'domcontentloaded',timeout:60000});await mobile.waitForFunction(()=>window.__bricked,null,{timeout:60000});await dismissControls(mobile);await mobile.waitForTimeout(500);
     await mobile.screenshot({path:'test-results/mobile-starter.png'});
     const cdp=await mobileContext.newCDPSession(mobile);
     const gesture=async(points,moves)=>{

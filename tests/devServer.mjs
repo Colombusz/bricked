@@ -1,5 +1,9 @@
 import {spawn} from 'node:child_process';
 
+export async function dismissControls(page){
+ await page.getByRole('button',{name:'Start building',exact:true}).click();
+}
+
 export async function revisionServer(){
  const url=process.env.BRICKED_URL||'http://127.0.0.1:5176';
  let processHandle;

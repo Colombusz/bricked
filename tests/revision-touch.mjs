@@ -1,5 +1,5 @@
 import {chromium} from '@playwright/test';import assert from 'node:assert/strict';import {writeFile,mkdir} from 'node:fs/promises';
-import {revisionServer} from './devServer.mjs';
+import {revisionServer,dismissControls} from './devServer.mjs';
 const server=await revisionServer();
 const browser=await chromium.launch({executablePath:chromium.executablePath(),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
@@ -7,7 +7,7 @@ const page=await context.newPage(),errors=[],results=[];page.on('pageerror',e=>e
 const check=async(name,fn)=>{await fn();results.push({name,status:'PASS'});console.log('PASS',name)};
 const inside=locator=>locator.evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.left>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1});
 try{
- await page.goto(server.url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);
+ await page.goto(server.url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__bricked);await dismissControls(page);
  const cdp=await context.newCDPSession(page);
  await check('Touch color wheel, hex, long-press editing and material-only preview',async()=>{
   const count=await page.evaluate(()=>window.__bricked.grid.bricks.size),camera=await page.evaluate(()=>window.__bricked.controls.targetPosition.toArray());

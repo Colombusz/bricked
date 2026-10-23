@@ -198,6 +198,7 @@ function start() {
   if(!storageError)persist();
   // Kept off the interface: useful for placement checks and repeatable performance captures.
   Object.assign(window,{__bricked:{world,controls,grid,bricks,placement,history,carousel,fullscreen,audio,hud,palettes,colorPanel,constraintChips,toolbar,settings,settingsPanel,metrics,stress:(count=1000)=>{history.replace(stressBuild(count));controls.frame();}}});
+  hud.showHelp();
 }
 
 try { start(); }

@@ -13,6 +13,8 @@ npm run dev
 
 Open the local URL printed by Vite. The first visit starts with an editable little house. Use the **Clear build** trash button in the bottom-left tools for a blank baseplate. Your latest build is restored on subsequent visits.
 
+The controls guide opens each time the page loads. Choose **Start building**, use the close button, or press Esc to dismiss it. Reopen it with the **?** button in the bottom-left tools or the **?** key. On smaller screens, the guide scrolls while its close and start buttons stay visible.
+
 ## Build and deploy
 
 ```sh
@@ -21,6 +23,8 @@ npm run preview
 ```
 
 Publish the contents of `dist/` to a static host. Assets use relative paths, so subdirectory hosting also works. There are no secrets, environment variables, or server functions to configure. The font is bundled with the application.
+
+For Vercel, import this repository with the project root as the Root Directory. The included `vercel.json` selects Vite, runs `npm run build`, and serves `dist/`.
 
 ## Controls
 
@@ -146,6 +150,7 @@ npm run test:browser
 npm run test:revision
 npm run test:catalog
 npm run test:world
+npm run test:controls
 ```
 
 The browser script starts Vite on port 5174 if necessary. `BRICKED_URL` can point it at an existing server, and `BRICKED_CHROMIUM` can select an existing Chromium executable. It records screenshots and JSON results under `test-results/`.
@@ -153,6 +158,8 @@ The browser script starts Vite on port 5174 if necessary. `BRICKED_URL` can poin
 The revision suite starts its own server on port 5176 and verifies the compact layout, color editor, saved palettes, input isolation, constraints, batched clear, sensitivity ratios, touch popovers, corrupt/unavailable storage, and pre-revision build compatibility.
 
 The world suite verifies placement across both old edges, negative/distant coordinates, camera-following terrain, picking, undo/redo, autosave and bounded ground resources.
+
+The controls suite checks the automatic welcome dialog, blocked building shortcuts, keyboard focus and dismissal, question-mark reopening, reload preservation, and scrolling portrait/landscape touch layouts.
 
 The catalog suite also starts port 5176 and checks Q/E vs fly, all catalog views, notch placement in both orders, L rotations/mirrors, lazy thumbnail contexts, phone chips, old/unknown saves, reusable ghost buffers, and mixed-type stress/clear/undo.
 
