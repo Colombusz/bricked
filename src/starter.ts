@@ -1,4 +1,5 @@
-import { COLORS, type Brick } from './bricks/catalog';
+import { COLORS, dimensions, canMirror, type Brick } from './bricks/catalog';
+import { CONFIG } from './config';
 
 export function starterBuild(): Brick[] {
   const bricks: Brick[]=[];
@@ -37,11 +38,23 @@ export function starterBuild(): Brick[] {
   return bricks;
 }
 
+const STRESS_TYPES=[
+  'bricks-1x1','bricks-1x2','bricks-1x3','bricks-1x4','bricks-2x2','bricks-2x3','bricks-2x4','bricks-3x3',
+  'plates-1x1','plates-1x2','plates-2x2','plates-2x3','plates-2x4','plates-3x3',
+  'tiles-1x1','tiles-1x2','tiles-2x2','tiles-2x3',
+  'bricks-l-2x2-t1','bricks-l-2x3-t1','bricks-l-2x4-t1','plates-l-3x3-t1','plates-l-3x3-t2','tiles-l-4x4-t1',
+];
 export function stressBuild(count=1000): Brick[] {
   const bricks:Brick[]=[];
+  let x=0,z=0,y=0,rowDepth=0;
   for(let i=0;i<count;i++) {
-    const layer=Math.floor(i/256), cell=i%256;
-    bricks.push({id:`stress-${i}`,type:'bricks-2x2',color:COLORS[(Math.floor(cell/16)+cell+layer)%COLORS.length].hex,rotation:0,x:(cell%16)*2,y:layer*3,z:Math.floor(cell/16)*2});
+    const type=STRESS_TYPES[i%STRESS_TYPES.length],rotation=(Math.floor(i/STRESS_TYPES.length)%4)*90;
+    const brick:Brick={id:`stress-${i}`,type,color:COLORS[i%COLORS.length].hex,rotation,mirror:canMirror(type)&&Math.floor(i/STRESS_TYPES.length)%2===1,x:0,y:0,z:0};
+    const d=dimensions(brick);
+    if(x+d.width>CONFIG.baseplateSize){x=0;z+=rowDepth;rowDepth=0;}
+    if(z+d.depth>CONFIG.baseplateSize){x=0;z=0;y+=3;rowDepth=0;}
+    if(y+d.height>CONFIG.maxBuildHeight)break;
+    brick.x=x;brick.y=y;brick.z=z;bricks.push(brick);x+=d.width;rowDepth=Math.max(rowDepth,d.depth);
   }
   return bricks;
 }

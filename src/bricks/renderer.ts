@@ -1,6 +1,6 @@
 import { Color, DynamicDrawUsage, InstancedMesh, MeshPhysicalMaterial, Object3D, Scene } from 'three';
 import { CONFIG } from '../config';
-import { CATALOG, dimensions, type Brick } from './catalog';
+import { TYPES, dimensions, type Brick } from './catalog';
 import { brickGeometry } from './geometry';
 
 interface Batch { mesh: InstancedMesh; capacity: number; bricks: Brick[] }
@@ -12,27 +12,28 @@ export class BrickRenderer {
   constructor(private scene: Scene) {}
   clear() {
     this.animations.clear();
-    for(const batch of this.batches.values()){batch.mesh.count=0;batch.bricks=[];}
+    for(const batch of this.batches.values()){batch.mesh.count=0;batch.mesh.visible=false;batch.bricks=[];}
   }
   sync(bricks: Iterable<Brick>) {
     const groups = new Map<string, Brick[]>();
     for (const brick of bricks) {
-      if (!groups.has(brick.type)) groups.set(brick.type, []);
-      groups.get(brick.type)!.push(brick);
+      const key=brick.mirror?`${brick.type}:mirror`:brick.type;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(brick);
     }
-    for (const type of CATALOG) {
-      const group = groups.get(type.id) ?? [];
-      let batch = this.batches.get(type.id);
-      if (!batch && group.length === 0) continue;
+    for(const [key,batch] of this.batches)if(!groups.has(key)){batch.bricks=[];batch.mesh.count=0;batch.mesh.visible=false;}
+    for (const [key,group] of groups) {
+      const type=TYPES.get(group[0].type)!;
+      let batch = this.batches.get(key);
       if (!batch || batch.capacity < group.length) {
         const capacity = Math.max(32, 2 ** Math.ceil(Math.log2(group.length)));
         if (batch) { this.scene.remove(batch.mesh); batch.mesh.dispose(); }
-        const mesh = new InstancedMesh(brickGeometry(type), this.material, capacity);
+        const mesh = new InstancedMesh(brickGeometry(type,Boolean(group[0].mirror)), this.material, capacity);
         mesh.instanceMatrix.setUsage(DynamicDrawUsage); mesh.castShadow = true; mesh.receiveShadow = true;
         mesh.count = 0; this.scene.add(mesh);
-        batch = { mesh, capacity, bricks: [] }; this.batches.set(type.id, batch);
+        batch = { mesh, capacity, bricks: [] }; this.batches.set(key, batch);
       }
-      batch.bricks = group; batch.mesh.count = group.length;
+      batch.bricks = group; batch.mesh.count = group.length;batch.mesh.visible=true;
       group.forEach((brick, index) => {
         this.writeMatrix(batch!, brick, index, 0, 1);
         batch!.mesh.setColorAt(index, new Color(brick.color));

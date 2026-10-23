@@ -3,7 +3,7 @@ import { CONFIG } from './config';
 import { Grid } from './grid';
 import { readText, writeJSON } from './storage';
 
-export interface BuildFile { version: 1; name: string; bricks: Brick[] }
+export interface BuildFile { version: 1; name: string; bricks: Brick[]; skipped?: number }
 export function parseBuild(text: string): BuildFile {
   if (text.length > 5_000_000) throw new Error('This file is too large. Use a build under 5 MB.');
   let data: unknown;
@@ -13,16 +13,18 @@ export function parseBuild(text: string): BuildFile {
   if (file.version !== 1 || !Array.isArray(file.bricks) || file.bricks.length > 10000) throw new Error('Use a version 1 Bricked file with at most 10,000 pieces.');
   const grid = new Grid();
   const bricks: Brick[] = [];
+  let skipped=0;
   for (const item of file.bricks) {
     if (!item || typeof item !== 'object') throw new Error('The build contains an invalid piece.');
     const b = item as Record<string, unknown>;
+    if(typeof b.type==='string'&&!TYPES.has(b.type)){console.warn(`Skipping unknown part type: ${b.type}`);skipped++;continue;}
     if (typeof b.id !== 'string' || b.id.length > 100 || !b.id || typeof b.type !== 'string' || !TYPES.has(b.type) || typeof b.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(b.color)
-      || ![0,90,180,270].includes(b.rotation as number) || ![b.x,b.y,b.z].every(v => typeof v === 'number' && Number.isInteger(v))) throw new Error('The build contains an invalid piece or grid position.');
-    const brick: Brick = { id: b.id, type: b.type, color: b.color, rotation: b.rotation as number, x: b.x as number, y: b.y as number, z: b.z as number };
+      || (b.mirror!==undefined&&typeof b.mirror!=='boolean') || ![0,90,180,270].includes(b.rotation as number) || ![b.x,b.y,b.z].every(v => typeof v === 'number' && Number.isInteger(v))) throw new Error('The build contains an invalid piece or grid position.');
+    const brick: Brick = { id: b.id, type: b.type, color: b.color, rotation: b.rotation as number, mirror: b.mirror===true, x: b.x as number, y: b.y as number, z: b.z as number };
     if (!grid.add(brick)) throw new Error('The build contains overlapping pieces or pieces outside the playground.');
     bricks.push(brick);
   }
-  return { version: 1, name: typeof file.name === 'string' ? file.name.slice(0,60) : 'Untitled build', bricks };
+  return { version: 1, name: typeof file.name === 'string' ? file.name.slice(0,60) : 'Untitled build', bricks, skipped };
 }
 export function loadBuild(): BuildFile | null {
   const stored = readText(CONFIG.autosaveKey);

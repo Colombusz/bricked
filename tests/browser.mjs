@@ -45,6 +45,7 @@ try {
   await check('Studio scene, procedural starter, and rendered thumbnails',async()=>{
     assert.equal(await count(),271);
     assert.equal(await page.locator('canvas#scene').count(),1);
+    await page.waitForFunction(()=>[...document.querySelectorAll('.part img')].every(i=>i.naturalWidth>=328));
     assert.ok(await page.locator('.part img').evaluateAll(images=>images.every(img=>img.src.startsWith('data:image/png')&&img.naturalWidth>100)));
     await page.screenshot({path:'test-results/desktop.png'});
     // Keep software WebGL rasterization affordable while preserving CSS viewport/input coordinates.
@@ -112,9 +113,11 @@ try {
     await page.getByRole('button',{name:'Build tool',exact:true}).click();
   });
   await check('All categories, deselection, colors, rotate, arrows, and bracket keys',async()=>{
-    for(const [category,total] of [['Bricks',9],['Plates',5],['Tiles',3]]) {
+    for(const [category,total] of [['Bricks',18],['Plates',21],['Tiles',13]]) {
       await page.getByRole('tab',{name:category,exact:true}).click();assert.equal(await page.locator('.part').count(),total);
-      for(const button of await page.locator('.part').all()) {if(await button.getAttribute('aria-pressed')!=='true')await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true');}
+      await page.waitForFunction(()=>[...document.querySelectorAll('.part img')].every(i=>i.naturalWidth>=328));
+      const legacy=category==='Bricks'?['1x1','1x2','1x3','1x4','1x6','2x2','2x3','2x4','2x6']:category==='Plates'?['1x1','1x2','2x2','2x4','4x4']:['1x1','1x2','2x2'];
+      for(const button of await page.locator(legacy.map(size=>`[data-type="${category.toLowerCase()}-${size}"]`).join(',')).all()) {if(await button.getAttribute('aria-pressed')!=='true')await button.click();assert.equal(await button.getAttribute('aria-pressed'),'true');}
     }
     const current=page.locator('.part[aria-pressed="true"]');await current.click();assert.equal(await page.evaluate(()=>window.__bricked.placement.selected),null);
     await page.keyboard.press(']');
@@ -227,7 +230,7 @@ try {
   });
   await check('2,000 instanced bricks, growing capacity, and no idle scene renders',async()=>{
     await page.evaluate(()=>window.__bricked.stress(2000));await wait(1600);assert.equal(await count(),2000);
-    const calls=await page.evaluate(()=>window.__bricked.world.renderer.info.render.calls);assert.ok(calls<20,`${calls} draw calls`);
+    const calls=await page.evaluate(()=>window.__bricked.world.renderer.info.render.calls),variants=await page.evaluate(()=>[...window.__bricked.bricks.batches.values()].filter(b=>b.mesh.count>0).length);assert.ok(variants>=20);assert.ok(calls<=variants+5,`${calls} draw calls for ${variants} variants`);
     await page.mouse.move(0,0);await wait(500);const frame=await page.evaluate(()=>window.__bricked.world.renderer.info.render.frame);await wait(400);assert.equal(await page.evaluate(()=>window.__bricked.world.renderer.info.render.frame),frame);
     results.push({name:'Instancing measurements',bricks:2000,drawCalls:calls});
   });

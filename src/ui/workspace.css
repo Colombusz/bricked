@@ -82,3 +82,24 @@
 .tool-rail, .color-strip, .toast, .build-menu, .project-hud { pointer-events: auto; }
 .placement-status { position: absolute; bottom: 106px; right: auto; left: 50%; transform: translateX(-50%); min-width: max-content; max-width: calc(100vw - 32px); }
 @media (max-width: 750px) { .placement-status { bottom: 200px; } }
+.l-filter { flex: 0 0 32px; display: grid; place-items: center; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 8px; color: #5b6874; background: transparent; }
+.l-filter:hover { background: #e9edf0; }
+.l-filter[aria-pressed="true"] { color: #aa3c2b; background: #fbe9e2; border-color: #e4a697; }
+.part.group-start { margin-left: 7px; }
+.thumbnail-pending img { visibility: hidden; }
+.thumbnail-pending::before { content: ''; position: absolute; inset: 11px 9px 14px; background: #d9dfe2; border-radius: 3px; }
+.lock-controls > *, .layer-control > * { flex-shrink: 0; }
+.lock-controls .rotate-chip, .lock-controls .mirror-chip { gap: 5px; }
+.lock-controls .rotate-chip svg, .lock-controls .mirror-chip svg { flex-shrink: 0; }
+@media (max-width: 750px) {
+ .l-filter { height: 44px; }
+ .lock-controls { max-width: calc(100% - 24px); gap: 5px; }
+ .lock-controls kbd, .lock-controls .chip-label { display: none; }
+ .lock-controls .rotate-chip, .lock-controls .mirror-chip { width: 40px; padding: 0; }
+ .lock-controls .layer-step { width: 26px; }
+ .lock-controls .lock-chip { padding-inline: 7px; }
+}
+@media (max-width: 360px) {
+ .lock-controls:has(.mirror-chip:not([hidden])) { display: grid; grid-template-columns: max-content max-content; max-width: calc(100% - 92px); }
+ #app:has(.lock-controls:not([hidden]) .mirror-chip:not([hidden])) .project-hud { bottom: calc(env(safe-area-inset-bottom, 0px) + 224px); }
+}

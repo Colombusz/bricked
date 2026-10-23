@@ -39,7 +39,9 @@ export class HUD {
       <dialog class="controls-dialog"><div class="dialog-top"><div><span class="dialog-eyebrow">Make yourself at home</span><h2>A few ways to play.</h2></div><button class="icon-button" data-close aria-label="Close controls">${icon('close')}</button></div>
       <div class="controls-grid"><section><h3>Build something</h3><dl>
       <div><dt>Place a piece</dt><dd>Left click / tap</dd></div>
-      <div><dt>Rotate piece</dt><dd><kbd>R</kbd></dd></div>
+      <div><dt>Rotate / mirror piece</dt><dd><kbd>R</kbd> / <kbd>M</kbd></dd></div>
+      <div><dt>Layer down / up</dt><dd><kbd>Q</kbd> / <kbd>E</kbd></dd></div>
+      <div><dt>Layer / axis lock</dt><dd><kbd>L</kbd> / <kbd>Shift</kbd></dd></div>
       <div><dt>Previous / next piece</dt><dd><kbd>[</kbd> <kbd>]</kbd></dd></div>
       <div><dt>Build / erase tool</dt><dd><kbd>B</kbd> / <kbd>X</kbd></dd></div>
       <div><dt>Delete hovered piece</dt><dd><kbd>Delete</kbd> or <kbd>X</kbd></dd></div>

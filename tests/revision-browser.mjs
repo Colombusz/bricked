@@ -69,8 +69,8 @@ if(stage==='3b'||stage==='all'){
   const p=await hover(21-16,0,22-16);
   assert.equal(await page.evaluate(()=>window.__bricked.placement.candidate.y),0);assert.equal(await page.evaluate(()=>window.__bricked.placement.valid),false);
   const before=await page.evaluate(()=>window.__bricked.grid.bricks.size);await page.mouse.click(p.x,p.y);assert.equal(await page.evaluate(()=>window.__bricked.grid.bricks.size),before);
-  await page.keyboard.press('PageUp');assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),3);await page.keyboard.press('PageDown');assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),0);
-  await page.getByRole('tab',{name:'Plates',exact:true}).click();assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),0);await page.getByRole('button',{name:'Raise locked layer',exact:true}).click();assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),1);
+  await page.keyboard.press('e');assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),3);await page.keyboard.press('q');assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),0);
+  await page.getByRole('tab',{name:'Plates',exact:true}).click();await page.locator('[data-type="plates-1x1"]').click();assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),0);await page.getByRole('button',{name:'Raise locked layer',exact:true}).click();assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),1);
  });
  await check('Touch chips keep locks across type/color switches; deselection clears both',async()=>{
   await page.locator('.axis-chip').click();assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.axisActive),true);
@@ -135,6 +135,7 @@ if(stage==='2'||stage==='all'){
   await page.locator('.current-color').click();assert.equal(await page.locator('.custom-section').evaluate(e=>e.open),false);await page.locator('.custom-section summary').click();
   await page.getByRole('textbox',{name:'Hex color',exact:true}).fill('#12ab89');assert.equal(await page.evaluate(()=>window.__bricked.placement.color),'#12ab89');
   const state=await page.evaluate(()=>({type:window.__bricked.placement.selected,rotation:window.__bricked.placement.rotation}));
+  const layerBefore=await page.evaluate(()=>window.__bricked.placement.locks.layer);await page.getByRole('textbox',{name:'Hex color',exact:true}).press('q');await page.getByRole('textbox',{name:'Hex color',exact:true}).press('e');assert.equal(await page.evaluate(()=>window.__bricked.placement.locks.layer),layerBefore);
   await page.getByRole('textbox',{name:'Hex color',exact:true}).press('r');await page.getByRole('textbox',{name:'Hex color',exact:true}).press('h');await page.getByRole('textbox',{name:'Hex color',exact:true}).press('1');
   assert.deepEqual(await page.evaluate(()=>({type:window.__bricked.placement.selected,rotation:window.__bricked.placement.rotation})),state);assert.equal(await page.locator('#app').evaluate(e=>e.classList.contains('ui-hidden')),false);
   await page.getByRole('textbox',{name:'Hex color',exact:true}).fill('#12ab89');

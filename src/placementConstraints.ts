@@ -8,7 +8,9 @@ export class PlacementConstraints {
   axisToggled = false;
   axis: 'x' | 'z' | null = null;
   anchor: Anchor | null = null;
+  private anchorBuffer:Anchor={x:0,y:0,z:0};
   layer: number | null = null;
+  limitPulse = 0;
   get axisActive() { return this.axisHeld || this.axisToggled; }
   get planeLayer() { return this.layer ?? (this.axisActive ? this.anchor?.y : null) ?? null; }
   holdAxis(held: boolean, candidate: Brick | null) {
@@ -21,19 +23,21 @@ export class PlacementConstraints {
     if(!wasActive&&this.axisActive)this.start(candidate);
     if(!this.axisActive){this.anchor=null;this.axis=null;}
   }
-  private start(candidate: Brick | null) { this.anchor=candidate ? {x:candidate.x,y:candidate.y,z:candidate.z} : null;this.axis=null; }
+  private start(candidate: Brick | null) { if(candidate){this.anchor=this.anchorBuffer;this.anchor.x=candidate.x;this.anchor.y=candidate.y;this.anchor.z=candidate.z;}else this.anchor=null;this.axis=null; }
   capture(candidate: Brick) { if(this.axisActive&&!this.anchor)this.start(candidate); }
   toggleLayer(candidate: Brick | null) { this.layer=this.layer===null?(candidate?.y??0):null; }
   stepLayer(direction: number, template: Brick) {
     const height=dimensions(template).height;
-    this.layer=Math.max(0,Math.min(CONFIG.maxBuildHeight-height,(this.layer??template.y)+direction*height));
+    const requested=(this.layer??template.y)+direction*height;
+    this.layer=Math.max(0,Math.min(CONFIG.maxBuildHeight-height,requested));
+    if(this.layer!==requested)this.limitPulse++;
     if(this.anchor)this.anchor.y=this.layer;
   }
   clampHeight(height: number) {
     if(this.layer!==null)this.layer=Math.min(this.layer,CONFIG.maxBuildHeight-height);
     if(this.anchor)this.anchor.y=Math.min(this.anchor.y,CONFIG.maxBuildHeight-height);
   }
-  apply(template: Brick, rawX: number, rawZ: number, previous?: Brick): Brick {
+  apply(template: Brick, rawX: number, rawZ: number, previous?: Brick, output: Brick = {...template}): Brick {
     let x=snapWithHysteresis(rawX,previous?.x),z=snapWithHysteresis(rawZ,previous?.z);
     if(this.axisActive&&this.anchor){
       const dx=rawX-this.anchor.x,dz=rawZ-this.anchor.z;
@@ -42,7 +46,7 @@ export class PlacementConstraints {
       else if(this.axis==='z')x=this.anchor.x;
       else {x=this.anchor.x;z=this.anchor.z;}
     }
-    return {...template,x,z,y:this.planeLayer??template.y};
+    Object.assign(output,template);output.x=x;output.z=z;output.y=this.planeLayer??template.y;return output;
   }
   clear() {this.axisHeld=false;this.axisToggled=false;this.axis=null;this.anchor=null;this.layer=null;}
 }

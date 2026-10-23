@@ -39,9 +39,10 @@ function start() {
   controls.settings=settings.value;placement.allowFloating=settings.value.allowFloating;audio.muted=!settings.value.sound;
   let projectName = 'The little house';
   let storageError = '';
+  let skippedPieces=0;
   try {
     const saved = loadBuild();
-    if (saved) { grid.replace(saved.bricks); projectName = saved.name; }
+    if (saved) { grid.replace(saved.bricks); projectName = saved.name;skippedPieces=saved.skipped??0; }
     else grid.replace(starterBuild());
   } catch { grid.replace(starterBuild()); storageError = 'Could not restore the saved build. You can still build and save a file.'; }
   bricks.sync(grid.bricks.values());
@@ -82,7 +83,7 @@ function start() {
       try {
         if(file.size>5_000_000)throw new Error('Choose a build file under 5 MB.');
         const imported=parseBuild(await file.text()); projectName=imported.name;
-        history.replace(imported.bricks); controls.frame(grid.bounds()); hud.toast('Your build is ready.');
+        history.replace(imported.bricks); controls.frame(grid.bounds()); hud.toast(imported.skipped?`${imported.skipped} pieces skipped`:'Your build is ready.');
       } catch(error) { hud.toast(error instanceof Error?error.message:'Could not open this build.',true); }
     },
     clear: clearBuild,
@@ -93,14 +94,15 @@ function start() {
   const toolbar = new Toolbar(root,hud.element.querySelector('.tool-rail')!,clearBuild,()=>hud.showHelp());
   toolbar.refresh(grid.bricks.size);hud.onClear=()=>toolbar.confirmClear();
   toolbar.mountSettings();
+  constraintChips.mountRotate(hud.element.querySelector<HTMLButtonElement>('[data-action="rotate"]')!);
   const settingsPanel = new SettingsPanel(root,toolbar.settingsButton,settings);
   settings.subscribe(value=>{controls.settings=value;placement.allowFloating=value.allowFloating;audio.muted=!value.sound;hud.setSound(audio.muted);placement.update();dirty=true;});
   hud.element.dataset.overlay = '';
   const frameArea = () => {
     const style=getComputedStyle(root),safe=(side:string)=>parseFloat(style.getPropertyValue(`--safe-${side}`))||0;
-    controls.setViewportInsets(root.classList.contains('ui-hidden') ? {top:0,right:0,bottom:0,left:0} : {top:(carousel.collapsed?60:80)+safe('top'),right:76+safe('right'),bottom:(root.clientWidth<750?180:100)+safe('bottom'),left:16+safe('left')});
+    controls.setViewportInsets(root.classList.contains('ui-hidden') ? {top:0,right:0,bottom:0,left:0} : {top:(carousel.collapsed?60:80)+safe('top'),right:76+safe('right'),bottom:(root.clientWidth<=CONFIG.compactPhoneWidth?CONFIG.compactPhoneFrameInset:root.clientWidth<750?180:100)+safe('bottom'),left:16+safe('left')});
   };
-  if(storageError)hud.toast(storageError,true);
+  if(storageError)hud.toast(storageError,true);else if(skippedPieces)hud.toast(`${skippedPieces} pieces skipped`);
   const fullscreen = new Fullscreen(root,hud.fullscreenButton,() => { world.resize(); frameArea(); dirty=true; });
   const changed = (kind: 'update' | 'clear' = 'update') => {
     if(kind==='clear')bricks.clear();else bricks.sync(grid.bricks.values()); placement.update();
@@ -114,7 +116,7 @@ function start() {
   const modalObserver=new MutationObserver(syncInteraction);
   hud.element.querySelectorAll('dialog').forEach(dialog=>modalObserver.observe(dialog,{attributes:true,attributeFilter:['open']}));
   placement.onChange=() => { constraintChips.refresh(); dirty=true; };
-  carousel.onChange=() => { canvas.classList.remove('erasing'); refreshTools(); frameArea(); };
+  carousel.onChange=() => { canvas.classList.toggle('erasing',placement.erasing); refreshTools(); frameArea(); };
   hud.element.querySelectorAll<HTMLButtonElement>('[data-axis]').forEach(button=>button.addEventListener('click',()=>controls.snapAxis(button.dataset.axis as 'x'|'y'|'z')));
 
   let press: { id:number; x:number; y:number; distance:number; cancelled:boolean } | null = null;
@@ -155,8 +157,9 @@ function start() {
     if(controls.flying||modifier)return;
     if((e.code==='ShiftLeft'||e.code==='ShiftRight')&&!e.repeat)placement.holdAxis(true);
     if(e.code==='KeyL'&&!e.repeat)placement.toggleLayer();
-    if(e.code==='PageUp'||e.code==='PageDown'){if(placement.locks.layer!==null){e.preventDefault();placement.stepLayer(e.code==='PageUp'?1:-1);}}
+    if((e.code==='KeyQ'||e.code==='KeyE')&&placement.selected&&!placement.erasing){e.preventDefault();if(!e.repeat)placement.stepLayer(e.code==='KeyE'?1:-1);}
     if(e.code==='KeyR'&&!e.repeat)placement.rotate();
+    if(e.code==='KeyM'&&!e.repeat)placement.toggleMirror();
     if(e.code==='KeyF')controls.frame(grid.bounds());
     if(e.code==='KeyH'&&!e.repeat) { Popover.closeAll(); root.classList.toggle('ui-hidden'); frameArea(); if(root.classList.contains('ui-hidden'))hud.toast('UI hidden, press H'); }
     if(/^Digit[1-9]$/.test(e.code))colorPanel.selectIndex(Number(e.code.slice(-1))-1);

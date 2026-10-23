@@ -1,4 +1,5 @@
 const paths: Record<string, string> = {
+  mirror: '<path d="M12 3v18M8 5 3 19h5ZM16 5l5 14h-5Z"/>',
   settings: '<path d="m9 3-.6 2.3-2 .9-2.1-.6-2 3.4 1.6 1.7v2.5L2.3 15l2 3.5 2.1-.6 2 .9L9 21h4l.6-2.2 2-.9 2.1.6 2-3.5-1.6-1.8v-2.5L19.7 9l-2-3.4-2.1.6-2-.9L13 3H9Z"/><circle cx="11" cy="12" r="3"/>',
   brick: '<path d="M4 9h16v10H4zM7 9V5h4v4m3 0V5h4v4"/><path d="M4 13h16" opacity=".35"/>',
   eraser: '<path d="m14 4 7 7-10 10H7l-5-5L14 4Z"/><path d="m8 10 7 7m-4 4h10"/>',

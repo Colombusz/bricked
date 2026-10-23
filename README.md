@@ -27,7 +27,9 @@ Publish the contents of `dist/` to a static host. Assets use relative paths, so 
 | Action | Desktop |
 | --- | --- |
 | Place selected piece | Left click |
-| Rotate 90° | R or rotate button |
+| Rotate 90° | R or rotate chip |
+| Mirror lopsided L | M or Mirror chip; available for L 2×3 and L 2×4 |
+| Straight / L-shaped parts | L-shaped filter button after the category tabs |
 | Select previous / next part | [ / ] or tray arrows |
 | Scroll parts | Wheel over the tray, or drag |
 | Deselect part | Click selected part again, or Esc |
@@ -35,7 +37,7 @@ Publish the contents of `dist/` to a static host. Assets use relative paths, so 
 | Select a palette color | 1–9 for the first nine colors, or click the right-side strip |
 | Axis lock | Hold Shift while a part is armed, or toggle the Axis chip |
 | Layer lock | L or the Layer chip |
-| Raise / lower locked layer | PageUp / PageDown, or ▲ / ▼; steps by the armed part's height |
+| Raise / lower locked layer | E / Q, or ▲ / ▼; enables the lock and steps by the armed part's height (outside fly mode) |
 | Orbit | Alt + left drag |
 | Pan | Middle mouse drag |
 | Dolly toward pivot | Mouse wheel |
@@ -57,11 +59,11 @@ Publish the contents of `dist/` to a static host. Assets use relative paths, so 
 | Fullscreen | Bottom-right button; Esc exits |
 | Axis view | Click x, y, or z in the orientation control |
 
-On touchscreens: drag with one finger to orbit, pinch to zoom, drag with two fingers to pan, and tap with less than 6 px movement to place. Swipe the parts strip horizontally and scroll the color strip vertically. Axis/Layer chips and their layer arrows expose the constraints without a keyboard. Long-press a saved-palette color to enter color removal mode.
+On touchscreens: drag with one finger to orbit, pinch to zoom, drag with two fingers to pan, and tap with less than 6 px movement to place. Swipe the parts strip horizontally and scroll the color strip vertically. Axis/Layer chips, layer arrows, Rotate and the relevant Mirror chip expose placement controls without a keyboard. Long-press a saved-palette color to enter color removal mode.
 
 Every camera drag blocks placement and hides the ghost, whether or not a piece is armed. Camera movement is damped; placement snaps instantly. Moving onto an interactive panel hides the ghost. Hotkeys are ignored while inputs, selectors, sliders, or the color wheel have focus.
 
-Axis lock starts at the ghost's current position. After one stud of travel it chooses X or Z, fixes the other coordinate and the layer, and displays a colored guide. Layer lock intersects a fixed horizontal plane and disables automatic lifting. Collisions and unsupported targets still show red. Locks survive part/color changes and clear on deselection.
+Axis lock starts at the ghost's current position. After one stud of travel it chooses X or Z, fixes the other coordinate and the layer, and displays a colored guide. Layer lock intersects a fixed horizontal plane and disables automatic lifting. Collisions and unsupported targets still show red. Locks survive part/color changes and clear on deselection. Q lowers and E raises by the armed part’s height, enabling layer lock on the first press. Auto-repeat is ignored; limits clamp and flash the chip. With right mouse held, Q/E fly instead and leave the layer unchanged. With no part armed, Q/E do nothing outside fly mode. PageUp/PageDown have no binding.
 
 ## Colors, palettes and settings
 
@@ -69,29 +71,39 @@ The right-side strip selects colors independently of the parts carousel. Its top
 
 Classic is read-only. **Add to palette** from Classic creates or reuses **My colors**. Create, rename, duplicate and delete palettes in the flyout. **Edit colors** exposes removal buttons; long-press does the same on touch. Limits are 24 colors per palette and 20 palettes including Classic, configurable in `src/config.ts`. Recent contains the last 12 distinct colors actually used on placed bricks.
 
-Palette switching preserves the current literal color until you choose another swatch. Palette edits/deletion never recolor existing bricks. Palettes, active palette, selected color, recent colors and carousel collapse state survive reloads.
+Palette switching preserves the current literal color until you choose another swatch. Palette edits/deletion never recolor existing bricks. Palettes, active palette, selected color, recent colors and carousel collapse/filter state survive reloads.
 
 Settings offers a 0.2×–3× master sensitivity in 0.05 steps. Fine-tune separately scales rotation, pan, zoom and fly speed; each effective value is master × fine-tune. Invert Y affects look/orbit, including touch orbit. Mouse look uses 0.12 degrees per Pointer Lock pixel before multipliers and smoothing. Reset restores sensitivity defaults, floating off, and sound on; it leaves builds and palettes intact.
 
 ## Building rules
 
 - One stud pitch is one world unit. One plate is 0.4 units high; a brick is three plates.
-- Integer cell origins and 0/90/180/270° rotations determine occupancy. Meshes are slightly inset to show seams.
+- Integer cell origins, 0/90/180/270° rotations and optional mirror state determine occupied-cell masks. Origins belong to the oriented bounding box. Body edges are inset along their normals to show seams, including notch edges.
 - The baseplate is 32×32 studs, with 96 plate layers of build height. Change these in `src/config.ts`.
 - Without placement locks, top hits place on top, side hits place flush at the hit brick's base layer, and occupied targets lift to the nearest free plate layer.
-- A new piece needs at least one supporting stud, so overhangs are allowed. Tiles have flat tops and provide no stud support.
+- A new piece needs at least one occupied cell above a supporting stud, so overhangs are allowed. Empty notches neither collide nor provide/receive support; rays pass through them. All tiles, including L-tiles, have flat tops and provide no stud support.
 - Invalid targets show red and cannot be committed. **Allow floating bricks** relaxes support only; bounds and collision checks still apply.
 - Removing a supporting piece leaves pieces above it in place. There is no physics simulation.
 
-All 17 MVP parts are available: nine brick sizes, five plates, and three tiles, with 14 Classic colors and arbitrary custom colors. Slopes, rounds, and arches are left for a later catalog expansion.
+All 76 parts are available, with 14 Classic colors and arbitrary custom colors:
+
+| Category | Straight | L-shaped | Total |
+| --- | ---: | ---: | ---: |
+| Bricks, 3 plates high | 18 | 8 | 26 |
+| Plates, 1 plate high | 21 | 8 | 29 |
+| Tiles, 1 plate high | 13 | 8 | 21 |
+
+Straight sizes range up to 1×12, 4×8 bricks, 8×8 plates, and 6×6 tiles. Each category has L 2×2, 2×3, 2×4, 3×3, 3×3·2, 4×4, 4×4·2 and 6×6·2. The ·2 label means two-stud-wide arms. At 0° an L’s elbow is always at min-x/min-z, with arms along +x/+z. M reflects across the local left/right axis before R rotation; only the unequal-length 2×3 and 2×4 Ls have a distinct mirror. Symmetric pieces ignore M and hide its chip. Slopes, rounds, and arches remain deferred.
+
+The L filter shows only L-shaped parts in the current category. Switching tabs or filter leaves the armed piece selected and scrolls the row to its start. Straights are grouped by width; Ls sort by occupied cell count. The strip remains 64 px on desktop and 56 px on phones. A flat placeholder holds each thumbnail’s space while a single offscreen renderer creates requested views in two-piece batches at 2× resolution; unseen views stay unrendered. A collapsed start renders only the armed-part pill thumbnail until you expand the strip. On the narrowest phones, the constraint controls use two compact rows when Mirror is present so the color strip remains clear.
 
 ## Saving
 
-Changes save automatically to `localStorage` in the current browser. **Save build** downloads a versioned JSON file. **Build options → Import build** restores a file after checking types, integer coordinates, bounds, IDs, rotations, colors, and overlaps. Invalid files leave the current build intact. Files may contain floating pieces.
+Changes save automatically to `localStorage` in the current browser. **Save build** downloads a versioned JSON file. **Build options → Import build** restores a file after checking types, integer coordinates, bounds, IDs, rotations, colors, and overlaps. Malformed known pieces leave the current build intact. Unknown type IDs are skipped with a console warning and an “N pieces skipped” toast; the valid remainder loads normally. Files may contain floating pieces.
 
 Clear, starter load, and import are undoable. History retains up to 200 commands for the current session. History itself is not saved across reloads. Rename a project by clicking its name in the bottom-left corner.
 
-Clearing resets occupancy and instance counts as one operation, with no per-piece animations or sounds. The confirmation and six-second Undo toast stay inside the fullscreen root. Build JSON and autosaves retain version 1 because pieces already stored literal hex colors; files from before this revision still load unchanged. Preferences use separate versioned keys and safe, validated localStorage access. With storage unavailable, palettes/settings work in memory and JSON export remains available.
+Clearing resets occupancy and instance counts as one operation, with no per-piece animations or sounds. The confirmation and six-second Undo toast stay inside the fullscreen root. Build JSON and autosaves retain version 1. The optional boolean `mirror` defaults to false in older files; existing IDs, origins, rotations and literal hex colors retain their meaning. New L IDs follow `bricks-l-2x3-t1` / `plates-l-4x4-t2` / `tiles-l-6x6-t2`. Mirror is preserved by commands, autosave and JSON export. Preferences use separate versioned keys and safe, validated localStorage access. With storage unavailable, palettes/settings work in memory and JSON export remains available.
 
 Fullscreen applies to the application root, including all controls. Browsers without the API use a fixed, viewport-sized mode. Both standard and WebKit fullscreen events are handled.
 
@@ -101,8 +113,8 @@ Fullscreen applies to the application root, including all controls. Browsers wit
 | --- | --- |
 | `src/config.ts` | Grid dimensions and interaction constants |
 | `src/grid.ts` | Sparse occupancy, support, collision, bounds, 3D DDA ray traversal |
-| `src/bricks/catalog.ts` | Part dimensions and color palette |
-| `src/bricks/geometry.ts` | Cached beveled bodies and rounded stud geometry |
+| `src/bricks/catalog.ts` | Catalog data, cached oriented/mirrored masks, exposed outlines, mirror eligibility and colors |
+| `src/bricks/geometry.ts` | Lazy beveled outline extrusions, baked mirror variants and occupied-cell studs |
 | `src/bricks/renderer.ts` | Per-type instancing, capacity growth, commit animation |
 | `src/bricks/thumbnails.ts` | One offscreen renderer, reused for all thumbnail images |
 | `src/placement.ts` | Grid targets, hysteresis, ghost, footprint outline |
@@ -129,19 +141,22 @@ npm test
 npx playwright install chromium
 npm run test:browser
 npm run test:revision
+npm run test:catalog
 ```
 
 The browser script starts Vite on port 5174 if necessary. `BRICKED_URL` can point it at an existing server, and `BRICKED_CHROMIUM` can select an existing Chromium executable. It records screenshots and JSON results under `test-results/`.
 
 The revision suite starts its own server on port 5176 and verifies the compact layout, color editor, saved palettes, input isolation, constraints, batched clear, sensitivity ratios, touch popovers, corrupt/unavailable storage, and pre-revision build compatibility.
 
+The catalog suite also starts port 5176 and checks Q/E vs fly, all catalog views, notch placement in both orders, L rotations/mirrors, lazy thumbnail contexts, phone chips, old/unknown saves, reusable ghost buffers, and mixed-type stress/clear/undo.
+
 See [VERIFICATION.md](VERIFICATION.md) for the recorded acceptance checklist, control-by-control browser results, and performance limits.
 
 The unit suite checks exact one-stud-offset stacking, collision lifting, support and tile rules, bounds, rotation, DDA faces, hysteresis, import validation, starter validity, and command history. The Chromium suite exercises placement, camera input, all part categories and colors, fullscreen and its fallback, dialogs, file round trips, autosave, responsive layouts, real touch gestures, and instancing at 2,000 pieces.
 
-Press **Ctrl+Shift+B** (Cmd+Shift+B on macOS) to replace the scene with 1,000 bricks for stress testing. Undo restores the preceding build. The hidden developer hook `window.__bricked.stress(2000)` can exercise a larger scene.
+Press **Ctrl+Shift+B** (Cmd+Shift+B on macOS) to replace the scene with 1,000 pieces across 24 types, including rotated/mirrored Ls, for stress testing. The deterministic fixture packs three-plate shelves and intentionally permits floating pieces. Undo restores the preceding build. The hidden developer hook `window.__bricked.stress(2000)` can exercise a larger scene.
 
-Performance measures include shared, indexed geometries; one colored `InstancedMesh` per used part type; capacity doubling; a pixel ratio capped at 2; shadow updates for scene changes; and no scene renders while idle. Hardware frame-rate targets should be profiled on the intended laptop and phone; software-rendered headless Chromium is a functional check, not a device FPS benchmark.
+Performance measures include shared, indexed geometries; one colored `InstancedMesh` per used type/mirror variant, with no visible empty meshes; lazy geometry and instance creation; cached masks and reusable ghost/ray/outline buffers; capacity doubling; a pixel ratio capped at 2; shadow updates for scene changes; and no scene renders while idle. Hardware frame-rate targets should be profiled on the intended laptop and phone; software-rendered headless Chromium is a functional check, not a device FPS benchmark.
 
 ## Defaults and assumptions
 
@@ -150,7 +165,9 @@ Performance measures include shared, indexed geometries; one colored `InstancedM
 - Orbit and wheel dolly use a shared pivot; F resets it to the build's center.
 - Floating is off by default; a chosen setting persists. Deleting supports never cascades.
 - Native fullscreen is preferred; unavailable or rejected requests use CSS maximize.
-- This release includes the full MVP catalog. Later part shapes remain deferred.
+- All 76 requested parts are included. Existing type IDs stay unchanged; all L IDs explicitly include arm width. Slopes, rounds and arches remain deferred.
+- Mirror acts in local coordinates before rotation. Equivalent mirrored orientations are deliberately ignored for symmetric pieces.
+- Q/E had no competing tool binding; the eraser remains X. Layer heights are measured in plates, and the chip readout is included.
 - Classic counts toward the 20-palette limit. Palette switching keeps the current color. New editable palettes start empty.
 - Palette drag-reordering is deferred. Axis/layer controls, H-to-hide and Recent are included.
 
